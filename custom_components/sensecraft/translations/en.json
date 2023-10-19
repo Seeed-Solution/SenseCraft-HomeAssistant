@@ -1,0 +1,37 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "SenseCraft",
+        "description": "Please enter your SenseCraft account and password",
+        "data": {
+          "username": "Username",
+          "password": "Password",
+          "env": "Env"
+        }
+      },
+      "select": {
+        "title": "Device",
+        "description": "Select the device to set up",
+        "data": {
+          "selected_device": "Select device"
+        }
+      }
+    },
+    "error": {
+      "invalid_auth": "Login failed",
+      "no_apikey": "NO API key"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Device",
+        "description": "Select the device to set up",
+        "data": {
+          "selected_device": "Select device"
+        }
+      }
+    }
+  }
+}

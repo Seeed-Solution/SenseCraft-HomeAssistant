@@ -1,0 +1,17 @@
+{
+  "domain": "sensecraft",
+  "name": "SenseCraft",
+  "codeowners": [
+    "@chenwenhao568"
+  ],
+  "config_flow": true,
+  "dependencies": ["mqtt"],
+  "documentation": "https://www.home-assistant.io/integrations/sensecraft",
+  "homekit": {},
+  "issue_tracker": "",
+  "iot_class": "cloud_push",
+  "requirements": [],
+  "ssdp": [],
+  "version": "1.0.0",
+  "zeroconf": []
+}
