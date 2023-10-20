@@ -5,12 +5,12 @@
     "@chenwenhao568"
   ],
   "config_flow": true,
-  "dependencies": ["mqtt"],
+  "dependencies": [],
   "documentation": "https://www.home-assistant.io/integrations/sensecraft",
   "homekit": {},
   "issue_tracker": "",
   "iot_class": "cloud_push",
-  "requirements": [],
+  "requirements": ["paho-mqtt==1.6.1"],
   "ssdp": [],
   "version": "1.0.0",
   "zeroconf": []
