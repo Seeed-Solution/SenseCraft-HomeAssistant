@@ -90,7 +90,7 @@ async def async_setup_entry(
     for device_id in removed_devices:
         # Unregister from HA
         device_registry.async_remove_device(device_id)
-
+    entities = []
     for device in selectedDeviceChannels:
         deviceInfo = dict()
         eui = device.get('device_eui')
@@ -107,9 +107,9 @@ async def async_setup_entry(
             measurement_ids = channel.get('measurement_ids')
             for measurementID in measurement_ids:
                 deviceInfo['measurementID'] = measurementID
-                sensor = Sensor(deviceInfo)
-                # add entities to HA
-                async_add_entities([sensor], update_before_add=True)
+                entities.append(Sensor(deviceInfo))
+    # add entities to HA
+    async_add_entities(entities, update_before_add=True)           
     
     topic = ("/device_sensor_data/{orgID}/#").format(
         orgID=orgID
