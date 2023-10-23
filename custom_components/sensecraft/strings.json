@@ -3,7 +3,7 @@
     "step": {
       "user": {
         "title": "SenseCraft",
-        "description": "Please enter your SenseCraft account and password",
+        "description": "Please enter your [SenseCraft Data Platform]({sensecraft_url})(original SenseCAP Cloud platform) account and password.",
         "data": {
           "username": "Username",
           "password": "Password",
@@ -12,7 +12,7 @@
       },
       "select": {
         "title": "Device",
-        "description": "Select the device to set up",
+        "description": "Select the device to set up.",
         "data": {
           "selected_device": "Select device"
         }
@@ -27,7 +27,7 @@
     "step": {
       "init": {
         "title": "Device",
-        "description": "Select the device to set up",
+        "description": "Select the device to set up.",
         "data": {
           "selected_device": "Select device"
         }

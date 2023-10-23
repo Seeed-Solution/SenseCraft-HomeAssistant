@@ -37,7 +37,7 @@ from .const import (
 ) 
 from requests import get,post
 _LOGGER = logging.getLogger(__name__)
-
+SenseCraft_URL = "https://sensecap.seeed.cc/"
 
 # Note the input displayed to the user will be translated. See the
 # translations/<lang>.json file and strings.json. See here for further information:
@@ -167,7 +167,7 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         ] = ENV_SELECTOR
 
         return self.async_show_form(
-            step_id="user", data_schema=vol.Schema(fields), errors=errors
+            step_id="user", data_schema=vol.Schema(fields), errors=errors,description_placeholders={"sensecraft_url": SenseCraft_URL},
         )
         
     async def async_step_select(
