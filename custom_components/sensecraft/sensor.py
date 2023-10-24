@@ -16,6 +16,9 @@ from homeassistant.const import (
     DEVICE_CLASS_ILLUMINANCE,
     DEVICE_CLASS_CO2,
 )
+from homeassistant.components.sensor import (
+    SensorDeviceClass,
+)
 from homeassistant.helpers.device_registry import (
     DeviceInfo,
     async_entries_for_config_entry,
@@ -194,16 +197,7 @@ class Sensor(Entity):
         measurementInfo = MEASUREMENT_DICT[self._measurementID]
         self._attr_name  = measurementInfo[0]
         self._attr_unit_of_measurement = measurementInfo[1]
-        if self._measurementID == '4097' or self._measurementID == '4102':
-            self._attr_device_class = DEVICE_CLASS_TEMPERATURE
-            # icon会覆盖class
-            # self._attr_icon = "mdi:temperature-celsius"
-        elif self._measurementID == '4098' or self._measurementID == '4103':
-            self._attr_device_class = DEVICE_CLASS_HUMIDITY
-        elif self._measurementID == '4099' or self._measurementID == '4193':
-            self._attr_device_class = DEVICE_CLASS_ILLUMINANCE
-        elif self._measurementID == '4100':
-            self._attr_device_class = DEVICE_CLASS_CO2    
+        self._attr_icon = measurementInfo[2]
 
     async def async_added_to_hass(self) -> None:
         """Run when this Entity has been added to HA."""
