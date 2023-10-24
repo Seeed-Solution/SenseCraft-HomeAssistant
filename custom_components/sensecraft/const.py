@@ -546,7 +546,7 @@ MEASUREMENT_DICT = {
     ],
     "5001": [
         "Wi-Fi MAC Address",
-        " "
+        " ",
         "mdi:wifi"
     ],
     "5002": [
