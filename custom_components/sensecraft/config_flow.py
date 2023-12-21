@@ -3,15 +3,19 @@ from __future__ import annotations
 
 import logging
 import json
+import socket
 from typing import Any, Dict, Optional
 import voluptuous as vol
 import hashlib
+from homeassistant.components import dhcp, zeroconf
 from homeassistant import config_entries, exceptions
-from homeassistant.core import HomeAssistant
 from homeassistant.core import callback
 import homeassistant.helpers.config_validation as cv
 from collections import OrderedDict
 from homeassistant.data_entry_flow import FlowResult
+from .core.sensecraft_cloud import SenseCraftCloud
+from .core.sensecraft_local import SenseCraftLocal
+from .core.sscma_local import SScmaLocal
 from homeassistant.helpers.selector import (
     SelectSelector,
     SelectSelectorConfig,
@@ -20,32 +24,41 @@ from homeassistant.helpers.selector import (
     TextSelectorConfig,
     TextSelectorType,
 )
+
 from .const import (
     DOMAIN,
     SUPPORTED_ENV,
     ENV_CHINA,
+    SENSECRAFT,
+    SSCMA,
+    JETSON_NAME,
+    GROVE_WE_2_NAME,
+    SUPPORTED_DEVICE,
+    BROKER,
+    PORT,
     ACCOUNT_USERNAME,
     ACCOUNT_PASSWORD,
+    MQTT_BROKER,
+    MQTT_PORT,
+    MQTT_TOPIC,
     SELECTED_DEVICE,
-    ACCESS_ID,
-    ACCESS_KEY,
     ACCOUNT_ENV,
-    ORG_ID,
-    ENV_URL,
-    PORTAL,
-    OPENAPI,
+    DEVICE_NAME,
+    DEVICE_HOST,
+    DEVICE_PORT,
+    DEVICE_MAC,
+    DEVICE_ID,
+    DEVICE_TYPE,
+    SENSECRAFT_CLOUD,
+    SENSECRAFT_LOCAL,
+    CONFIG_DATA,
+    DATA_SOURCE,
+    CLOUD,
 ) 
-from requests import get,post
+
 _LOGGER = logging.getLogger(__name__)
 SenseCraft_URL = "https://sensecap.seeed.cc/"
 
-# Note the input displayed to the user will be translated. See the
-# translations/<lang>.json file and strings.json. See here for further information:
-# https://developers.home-assistant.io/docs/config_entries_config_flow_handler/#translations
-# At the time of writing I found the translations created by the scaffold didn't
-# quite work as documented and always gave me the "Lokalise key references" string
-# (in square brackets), rather than the actual translated value. I did not attempt to
-# figure this out or look further into it.
 
 TEXT_SELECTOR = TextSelector(TextSelectorConfig(type=TextSelectorType.TEXT))
 PASSWORD_SELECTOR = TextSelector(TextSelectorConfig(type=TextSelectorType.PASSWORD))
@@ -55,70 +68,12 @@ ENV_SELECTOR = SelectSelector(
         mode=SelectSelectorMode.DROPDOWN,
     )
 )
-
-async def sensecapAuth(hass: HomeAssistant,user_input: dict[str, Any], env):
-    username = user_input[ACCOUNT_USERNAME]
-    password = user_input[ACCOUNT_PASSWORD]
-    def login(username: str, password: str):
-        hash_object = hashlib.md5(password.encode('utf-8'))
-        md5_password = hash_object.hexdigest()
-        url = ("{portalurl}/user/login?account={account}&password={password}&origin=1").format(
-                portalurl=ENV_URL[env][PORTAL],
-                account=username,
-                password=md5_password
-            )
-        response = post(url=url)
-        resp = json.loads(response.text)
-        data = resp.get('data')
-        code = resp.get('code')
-        if int(code) != 0 or data is None:
-            raise ValueError
-        return data
-    try:
-        authData = await hass.async_add_executor_job(login,username,password)
-        return authData
-    except:
-        raise ValueError
-    
-async def getApikey(hass: HomeAssistant, token: str, env):
-    def getFixedAccess(token: str):
-        headers = {
-            'Authorization': token,
-        }
-        url = ("{portalurl}/organization/access/getFixedAccess").format(
-                portalurl=ENV_URL[env][PORTAL],
-            )
-        response = get(url, headers=headers)
-        resp = json.loads(response.text)
-        data = resp.get('data')
-        code = resp.get('code')
-        if int(code) != 0 or data is None:
-            raise ValueError
-        return data
-    try:
-        apikey = await hass.async_add_executor_job(getFixedAccess,token)
-        return apikey
-    except:
-        raise ValueError
-
-         
-async def getDeviceList(hass: HomeAssistant,accessid: str, accesskey:str, env):
-    def list_devices(username: str, password: str):
-        url = ("{openapi}/list_devices").format(
-                openapi=ENV_URL[env][OPENAPI],
-            )
-        response = get(url, auth=(username, password))
-        resp = json.loads(response.text)
-        data = resp.get('data')
-        code = resp.get('code')
-        if int(code) != 0 or data is None:
-            raise ValueError
-        return data
-    try:
-        response = await hass.async_add_executor_job(list_devices,accessid,accesskey)
-        return response
-    except:
-        raise ValueError
+DEVICE_TYPE_SELECTOR = SelectSelector(
+    SelectSelectorConfig(
+        options=SUPPORTED_DEVICE,
+        mode=SelectSelectorMode.DROPDOWN,
+    )
+)
 
 class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     """Handle a config flow for Sensecap."""
@@ -136,60 +91,73 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         self, user_input: dict[str, Any] | None = None
     ) -> FlowResult:
         """Handle a flow initialized by the user."""
-        """Confirm the setup."""
         errors: dict[str, str] = {}
         if user_input is not None:
+            action = user_input.get('action')
+            if action == 'cloud':
+                return await self.async_step_cloud()
+            elif action == 'local':
+                return await self.async_step_local()
+            
+        actions = {
+            'cloud': 'Add devices using SenseCraft Account (账号集成)',
+            'local': 'Add device using host/id (局域网集成)',
+        }
+        
+        return self.async_show_form(
+            step_id='user',
+            data_schema=vol.Schema({
+                vol.Required('action', default='cloud'): vol.In(actions),
+            }),
+            errors=errors,
+        )
+                
+    async def async_step_cloud(
+        self, user_input: dict[str, Any] | None = None
+    ) -> FlowResult:
+        """Handle a flow initialized by the cloud."""
+        errors: dict[str, str] = {}
+        if user_input is None:
+            user_input = {}
+        else:
             try:
+                cloud = SenseCraftCloud(self.hass)
+                username = user_input[ACCOUNT_USERNAME]
+                password = user_input[ACCOUNT_PASSWORD]
                 env = user_input[ACCOUNT_ENV]
-                userdata = await sensecapAuth(self.hass, user_input, env)
-                self.data['user'] = userdata
-                apikey = await getApikey(self.hass, userdata.get('token'), env)
-                accessid = apikey.get(ACCESS_ID)
-                accesskey = apikey.get(ACCESS_KEY)
-                self.data[ACCESS_ID] = accessid
-                self.data[ACCESS_KEY] = accesskey
-                self.data[ACCOUNT_ENV] = env
-                return await self.async_step_select()
+                await cloud.senseCraftAuth(username, password, env)
+                self.data[SENSECRAFT_CLOUD] = cloud
+                return await self.async_step_cloud_filter()
             except NoApiKey:
                 errors["base"] = "no_apikey"
-            except Exception:  # pylint: disable=broad-except
+            except Exception:
                 _LOGGER.exception("Unexpected exception")
                 errors["base"] = "invalid_auth"
 
         fields: OrderedDict[Any, Any] = OrderedDict()
-        fields[vol.Required(ACCOUNT_USERNAME)] = TEXT_SELECTOR
-        fields[vol.Required(ACCOUNT_PASSWORD)] = PASSWORD_SELECTOR
-        fields[
-        vol.Optional(
-            ACCOUNT_ENV,
-            description={"suggested_value": ENV_CHINA},
-        )
-        ] = ENV_SELECTOR
+        fields[vol.Required(ACCOUNT_USERNAME, default=user_input.get(ACCOUNT_USERNAME, ''))] = TEXT_SELECTOR
+        fields[vol.Required(ACCOUNT_PASSWORD, default=user_input.get(ACCOUNT_PASSWORD, ''))] = PASSWORD_SELECTOR
+        fields[vol.Optional(ACCOUNT_ENV, default=user_input.get(ACCOUNT_ENV, ENV_CHINA))] = ENV_SELECTOR
 
         return self.async_show_form(
-            step_id="user", data_schema=vol.Schema(fields), errors=errors,description_placeholders={"sensecraft_url": SenseCraft_URL},
+            step_id="cloud", data_schema=vol.Schema(fields), errors=errors, description_placeholders={"sensecraft_url": SenseCraft_URL},
         )
         
-    async def async_step_select(
+    async def async_step_cloud_filter(
         self, user_input: dict[str, Any] | None = None
     ) -> FlowResult:
         """Handle multiple cloud devices found."""
         errors: dict[str, str] = {}
-
-        accessid = self.data[ACCESS_ID]
-        accesskey =self.data[ACCESS_KEY]
-        env = self.data[ACCOUNT_ENV]
+        cloud: SenseCraftCloud = self.data[SENSECRAFT_CLOUD]
         if user_input is not None:
             selectDevice = user_input[SELECTED_DEVICE]
-            return self.async_create_entry(title="device", data={
-                        ORG_ID: self.data['user']['org_id'],
-                        ACCESS_ID: self.data[ACCESS_ID],
-                        ACCESS_KEY: self.data[ACCESS_KEY],
-                        SELECTED_DEVICE: selectDevice,
-                        ACCOUNT_ENV: env,
+            cloud.selectedDeviceEuis = selectDevice
+            return self.async_create_entry(title="Cloud Device", data={
+                        CONFIG_DATA: cloud.to_config(),
+                        DATA_SOURCE: CLOUD
                     })
 
-        deviceList = await getDeviceList(self.hass, accessid, accesskey, env)
+        deviceList = await cloud.getDeviceList()
         all_device = {device.get('device_eui'): f"{device.get('device_eui')} {device.get('device_name')}" for device in deviceList}
         select_schema = vol.Schema({
             vol.Required(SELECTED_DEVICE): cv.multi_select(
@@ -198,49 +166,285 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         })
 
         return self.async_show_form(
-            step_id="select", data_schema=select_schema, errors=errors
+            step_id="cloud_filter", data_schema=select_schema, errors=errors
         )
-        
-    @staticmethod
-    @callback
-    def async_get_options_flow(config_entry):
-        """Get the options flow for this handler."""
-        return OptionsFlowHandler(config_entry)
-        
-
-class OptionsFlowHandler(config_entries.OptionsFlow):
-    """Handles options flow for the component."""
-
-    def __init__(self, config_entry: config_entries.ConfigEntry) -> None:
-        self.config_entry = config_entry
-
-    async def async_step_init(
+    
+    async def async_step_local(
         self, user_input: dict[str, Any] | None = None
     ) -> FlowResult:
-        """Manage the options for the custom component."""
+        """Handle a flow initialized by the local."""
         errors: dict[str, str] = {}
-        
-        accessid = self.config_entry.data[ACCESS_ID]
-        accesskey =self.config_entry.data[ACCESS_KEY]
-        env = self.config_entry.data[ACCOUNT_ENV]
-
-        selected = self.config_entry.data[SELECTED_DEVICE]
-        if user_input is not None:
-            return self.async_create_entry(title="device", data={
-                SELECTED_DEVICE: user_input[SELECTED_DEVICE],
-                })
-
-        deviceList = await getDeviceList(self.hass, accessid, accesskey, env)
-        all_device = {device.get('device_eui'): f"{device.get('device_eui')} {device.get('device_name')}" for device in deviceList}
-        select_schema = vol.Schema({
-            vol.Required(SELECTED_DEVICE,default=list(selected)): cv.multi_select(
-                    all_device
-                )
-        })
+        if user_input is None:
+            user_input = {}
+        else:
+            device = user_input['device']
+            if device == JETSON_NAME:
+                return await self.async_step_local_sensecraft()
+            elif device == GROVE_WE_2_NAME:
+                return await self.async_step_local_sscma()
+                
+        fields: OrderedDict[Any, Any] = OrderedDict()
+        fields[vol.Optional('device', default=user_input.get('device', JETSON_NAME))] = DEVICE_TYPE_SELECTOR
 
         return self.async_show_form(
-            step_id="init", data_schema=select_schema, errors=errors
+            step_id="local", data_schema=vol.Schema(fields), errors=errors
         )
+    
+    async def async_step_local_sensecraft(
+        self, user_input: dict[str, Any] | None = None
+    ) -> FlowResult:
+        """Confirm the setup."""
+        errors: dict[str, str] = {}
+        if user_input is None:
+            user_input = {}
+        else:
+            try:
+                host = user_input['host']
+                name = user_input['name']
+                config: dict[str, str] = {}
+                config[DEVICE_HOST] = host
+                config[DEVICE_NAME] = name
+                config[DEVICE_TYPE] = SENSECRAFT
+                local = SenseCraftLocal(self.hass, config)
+                info = await local.getInfo()
+                device_mac = info.get('mac')
+                if device_mac is not None:
+                    local.deviceMac = device_mac
+                    local.mqttBroker = host
+                    local.mqttPort = 1884
+                    config = local.to_config()
+                    await self.async_set_unique_id(device_mac)
+                    self._abort_if_unique_id_configured()
+                    return self.async_create_entry(title=name, data={
+                        CONFIG_DATA: config,
+                        DATA_SOURCE: SENSECRAFT
+                    })
+                else: 
+                    errors["base"] = "setup_error"
+            except Exception:
+                _LOGGER.exception("Unexpected exception")
+                errors["base"] = "setup_error"
+
+        fields: OrderedDict[Any, Any] = OrderedDict()
+        fields[vol.Required('host', default=user_input.get('host', ''))] = TEXT_SELECTOR
+        fields[vol.Required('name', default=user_input.get('name', JETSON_NAME))] = TEXT_SELECTOR
+
+        return self.async_show_form(
+            step_id="local_sensecraft", data_schema=vol.Schema(fields), errors=errors
+        )
+    
+    async def async_step_local_sscma(
+        self, user_input: dict[str, Any] | None = None
+    ) -> FlowResult:
+        """Confirm the setup."""
+        errors: dict[str, str] = {}
+        if user_input is None:
+            user_input = {}
+        else:
+            id = user_input['id']
+            name = f"grove_vision_ai_we2_{id}"
+            device: dict[str, str] = {}
+            device[DEVICE_NAME] = name
+            device[DEVICE_ID] = name
+            device[MQTT_TOPIC] = f"sscma/v0/grove_vision_ai_we2_{id}"
+            device[MQTT_BROKER] = ''
+            device[MQTT_PORT] = ''
+            device[DEVICE_TYPE] = SSCMA
+            self.context['device'] = device
+            await self.async_set_unique_id(name)
+            self._abort_if_unique_id_configured()
+            return await self.async_step_sscma_mqtt()
+
+        fields: OrderedDict[Any, Any] = OrderedDict()
+        fields[vol.Required('id', default=user_input.get('id', ''))] = TEXT_SELECTOR
+
+        return self.async_show_form(
+            step_id="local_sscma", data_schema=vol.Schema(fields), errors=errors
+        )
+        
+    async def async_step_zeroconf(
+        self, discovery_info: zeroconf.ZeroconfServiceInfo
+    ) -> FlowResult:
+        """Handle zeroconf discovery."""
+        print('zeroconf',discovery_info)
+        type = discovery_info.type
+        name = discovery_info.name
+        device_name = name.removesuffix("." + type)
+        properties = discovery_info.properties
+        device: dict[str, str] = {}
+        if type == '_sensecraft._tcp.local.':
+            device_mac: str | None = properties.get("mac")
+            device_host: str | None = properties.get("host")
+            device_port: str | None = properties.get("port")
+            mqtt_port: str | None = properties.get("mqtt_port")
+            if device_mac is None:
+                return self.async_abort(reason="mdns_missing_mac")
+            if device_host is None:
+                return self.async_abort(reason="mdns_missing_host")
+            if device_port is None:
+                return self.async_abort(reason="mdns_missing_port")
+            if mqtt_port is None:
+                return self.async_abort(reason="mdns_missing_mqtt")
+            device[DEVICE_NAME] = device_name
+            device[DEVICE_HOST] = device_host
+            device[DEVICE_PORT] = device_port
+            device[DEVICE_MAC] = device_mac
+            device[DEVICE_TYPE] = SENSECRAFT
+            device[MQTT_BROKER] = device_host
+            device[MQTT_PORT] = mqtt_port
+            await self.async_set_unique_id(device_mac)
+            self._abort_if_unique_id_configured()
+            self.context.update({'title_placeholders': {'name': device_name + '_' + device_host}})
+            self.context['device'] = device
+            return await self.async_step_zeroconf_confirm()
+
+        elif type == '_sscma._tcp.local.':
+            mqtt_broker: str | None = properties.get("server")
+            mqtt_port: str | None = properties.get("port")
+            dest: str | None = properties.get("dest")
+            auth: str | None = properties.get("auth")
+            if mqtt_broker is None or mqtt_port is None or dest is None:
+                return self.async_abort(reason="mdns_missing_mqtt")
+            device[DEVICE_NAME] = device_name
+            device[DEVICE_ID] = device_name
+            device[DEVICE_TYPE] = SSCMA
+            device[MQTT_BROKER] = mqtt_broker
+            device[MQTT_PORT] = mqtt_port
+            device[MQTT_TOPIC] = dest
+            await self.async_set_unique_id(device_name)
+            self._abort_if_unique_id_configured()
+            self.context.update({'title_placeholders': {'name': device_name}})
+            self.context['device'] = device
+            if auth is not None and auth == 'y':
+                return await self.async_step_sscma_mqtt()
+            else:
+                return await self.async_step_zeroconf_confirm()
+
+    
+    async def async_step_zeroconf_confirm(
+        self, user_input: dict[str, Any] | None = None
+    ) -> FlowResult:
+        """Handle a flow initiated by zeroconf."""
+        errors: dict[str, str] = {}
+        device = self.context['device']
+        device_name = device[DEVICE_NAME]
+        device_type = device[DEVICE_TYPE]
+        if user_input is not None:
+            if device_type == SENSECRAFT:
+                local = SenseCraftLocal(self.hass, device)
+            elif device_type == SSCMA:
+                local = SScmaLocal(self.hass, device)
+            config = local.to_config()
+            return self.async_create_entry(title=device_name, data={
+                CONFIG_DATA: config,
+                DATA_SOURCE: device_type
+            })
             
+        return self.async_show_form(
+            step_id="zeroconf_confirm",
+            errors=errors,
+            description_placeholders={"name": device_name},
+        )
+    
+    async def async_step_sscma_mqtt(
+        self, user_input: dict[str, Any] | None = None
+    ) -> FlowResult:
+        """set up mqtt broker and connect device with tcp."""
+        errors: dict[str, str] = {}
+        device = self.context['device']
+        device_name = device[DEVICE_NAME]
+        mqtt_broker = device[MQTT_BROKER]
+        mqtt_port = device[MQTT_PORT]
+        if user_input is None:
+            user_input = {}
+        else:
+            try:
+                local = SScmaLocal(self.hass, device)                
+                local.mqttBroker = user_input[BROKER]
+                local.mqttPort = user_input[PORT]
+                local.mqttUsername = user_input[ACCOUNT_USERNAME]
+                local.mqttPassword = user_input[ACCOUNT_PASSWORD]
+                
+                if local.setMqtt():
+                    local.stop()
+                    config = local.to_config()
+                    return self.async_create_entry(title=device_name, data={
+                        CONFIG_DATA: config,
+                        DATA_SOURCE: SSCMA
+                    })
+                else: 
+                    errors["base"] = "setup_error"
+            except Exception:
+                _LOGGER.exception("Unexpected exception")
+                errors["base"] = "setup_error"
+        fields: OrderedDict[Any, Any] = OrderedDict()
+        fields[vol.Required(BROKER, default=user_input.get(BROKER, mqtt_broker))] = TEXT_SELECTOR
+        fields[vol.Required(PORT, default=user_input.get(PORT, mqtt_port))] = TEXT_SELECTOR
+        fields[vol.Optional(ACCOUNT_USERNAME, default=user_input.get(ACCOUNT_USERNAME, ''))] = TEXT_SELECTOR
+        fields[vol.Optional(ACCOUNT_PASSWORD, default=user_input.get(ACCOUNT_PASSWORD, ''))] = PASSWORD_SELECTOR
+        
+        return self.async_show_form(
+            step_id="sscma_mqtt",
+            data_schema=vol.Schema(fields),
+            errors=errors,
+            description_placeholders={"name": device_name}
+        )
+    
+    # @staticmethod
+    # @callback
+    # def async_get_options_flow(config_entry):
+    #     """Get the options flow for this handler."""
+    #     data_source = config_entry.data.get(DATA_SOURCE)
+    #     print('async_get_options_flow data_source:',data_source)
+    #     if data_source == CLOUD:
+    #         return OptionsFlowHandler(config_entry)
+    #     else :
+    #         return MyOptionsFlowHandler(config_entry)
+        
+        
+
+# class OptionsFlowHandler(config_entries.OptionsFlow):
+#     """Handles options flow for the component."""
+
+#     def __init__(self, config_entry: config_entries.ConfigEntry) -> None:
+#         self.config_entry = config_entry
+
+#     async def async_step_init(
+#         self, user_input: dict[str, Any] | None = None
+#     ) -> FlowResult:
+#         """Manage the options for the custom component."""
+#         errors: dict[str, str] = {}
+#         cloud = SenseCraftCloud.from_config(self.hass, self.config_entry.data[CONFIG_DATA])
+#         selected = cloud.selectedDeviceEuis
+#         if user_input is not None:
+#             return self.async_create_entry(title="Cloud Device", data={
+#                 SELECTED_DEVICE: user_input[SELECTED_DEVICE],
+#                 DATA_SOURCE: CLOUD
+#                 })
+
+#         deviceList = await cloud.getDeviceList()
+#         all_device = {device.get('device_eui'): f"{device.get('device_eui')} {device.get('device_name')}" for device in deviceList}
+#         select_schema = vol.Schema({
+#             vol.Required(SELECTED_DEVICE, default=list(selected)): cv.multi_select(
+#                     all_device
+#                 )
+#         })
+
+#         return self.async_show_form(
+#             step_id="init", data_schema=select_schema, errors=errors
+#         )
+    
+# class MyOptionsFlowHandler(config_entries.OptionsFlow):
+
+#     @staticmethod
+#     async def async_get_options_flow(config_entry):
+#         return MyOptionsFlowHandler(config_entry)
+
+#     def __init__(self, config_entry):
+#         self.config_entry = config_entry
+
+#     async def async_step_init(self, user_input=None):
+#         return self.async_show_form(step_id="init")
+        
 class NoApiKey(exceptions.HomeAssistantError):
     """Error to indicate there is an invalid ApiKey."""

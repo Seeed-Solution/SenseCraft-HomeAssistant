@@ -5,13 +5,18 @@
     "@chenwenhao568"
   ],
   "config_flow": true,
-  "dependencies": [],
+  "dependencies": ["zeroconf"],
   "documentation": "https://www.home-assistant.io/integrations/sensecraft",
-  "homekit": {},
+  "integration_type": "device",
   "issue_tracker": "",
   "iot_class": "cloud_push",
-  "requirements": ["paho-mqtt==1.6.1"],
-  "ssdp": [],
-  "version": "1.0.0",
-  "zeroconf": []
+  "requirements": [
+    "paho-mqtt==1.6.1",
+    "python-sscma==0.0.3"
+  ],
+  "version": "1.1.0",
+  "zeroconf": [
+    "_sensecraft._tcp.local.",
+    "_sscma._tcp.local."
+  ]
 }

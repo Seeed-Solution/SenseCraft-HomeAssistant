@@ -1,14 +1,26 @@
 from homeassistant.core import HomeAssistant
 from homeassistant import config_entries
-from homeassistant.helpers import device_registry
 from homeassistant.const import Platform
 
 # The domain of your component. Should be equal to the name of your component.
 from .const import (
-    DOMAIN
+    DOMAIN,
+    SENSECRAFT_CLOUD,
+    SENSECRAFT_LOCAL,
+    SSCMA_LOCAL,
+    CONFIG_DATA,
+    DATA_SOURCE,
+    CLOUD,
+    SENSECRAFT,
+    SSCMA,
 )
 
-PLATFORMS = [Platform.SENSOR]
+# from .mqtt_assistant import MQTTAssistant
+from .core.sensecraft_cloud import SenseCraftCloud
+from .core.sensecraft_local import SenseCraftLocal
+from .core.sscma_local import SScmaLocal
+
+PLATFORMS = [Platform.CAMERA, Platform.SENSOR, Platform.NUMBER, Platform.SELECT]
 
 async def async_setup_entry(
     hass: HomeAssistant, entry: config_entries.ConfigEntry
@@ -19,9 +31,25 @@ async def async_setup_entry(
     if entry.options:
         data.update(entry.options)
         entry.data=data
-    hass.data[DOMAIN][entry.entry_id] = data
     # # Forward the setup to the sensor platform.
+    data_source = data.get(DATA_SOURCE)
     entry.async_on_unload(entry.add_update_listener(update_listener))
+    if data_source == CLOUD:
+        cloud = SenseCraftCloud.from_config(hass, data.get(CONFIG_DATA))
+        data[SENSECRAFT_CLOUD] = cloud
+
+    elif data_source == SENSECRAFT:
+        senseCraftLocal = SenseCraftLocal.from_config(hass, data.get(CONFIG_DATA))
+        senseCraftLocal.setMqtt()
+        data[SENSECRAFT_LOCAL] = senseCraftLocal
+
+    elif data_source == SSCMA:
+        sscmaLocal = SScmaLocal.from_config(hass, data.get(CONFIG_DATA))
+        sscmaLocal.setMqtt()
+        data[SSCMA_LOCAL] = sscmaLocal
+
+    hass.data[DOMAIN][entry.entry_id] = data
+        
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     return True
 
@@ -29,6 +57,18 @@ async def async_unload_entry(
     hass: HomeAssistant, entry: config_entries.ConfigEntry
 ) -> bool:
     """Unload a config entry."""
+    data = hass.data[DOMAIN][entry.entry_id]
+    data_source = data.get(DATA_SOURCE)
+    if data_source == CLOUD:
+        cloud: SenseCraftCloud = data[SENSECRAFT_CLOUD]
+        cloud.stop()
+    elif data_source == SENSECRAFT:
+        senseCraftLocal: SenseCraftLocal = data[SENSECRAFT_LOCAL]
+        senseCraftLocal.stop()
+    elif data_source == SSCMA:
+        sscmaLocal: SScmaLocal = data[SSCMA_LOCAL]
+        sscmaLocal.stop()
+        
     unload_ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
     if unload_ok:
         hass.data[DOMAIN].pop(entry.entry_id)
@@ -38,22 +78,3 @@ async def update_listener(hass: HomeAssistant, entry: config_entries.ConfigEntry
     """Handle options update."""
     await hass.config_entries.async_reload(entry.entry_id)
 
-# async def async_remove_config_entry_device(
-#     hass: HomeAssistant, entry: config_entries.ConfigEntry, device_entry: device_registry.DeviceEntry
-# ) -> bool:
-#     """Remove device from a config entry."""
-#     eui = list(device_entry.identifiers)[0][1]
-#     if entry.options:
-#         options = dict(entry.options)
-#         selected_device_options = options[SELECTED_DEVICE]
-#         selected_device_options.pop(eui)
-#         options[SELECTED_DEVICE] = selected_device_options
-#         entry.options = options
-
-#     data = dict(entry.data)
-#     selected_device = data[SELECTED_DEVICE]
-#     selected_device.pop(eui)
-#     data[SELECTED_DEVICE] = selected_device
-#     entry.data = data
-    
-#     return True

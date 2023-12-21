@@ -1,7 +1,26 @@
 {
   "config": {
+    "flow_title": "{name}",
+    "abort": {
+      "mdns_missing_mac": "Missing MAC address in MDNS properties.",
+      "mdns_missing_host": "Missing Host in MDNS properties.",
+      "mdns_missing_port": "Missing Port in MDNS properties.",
+      "mdns_missing_mqtt": "Missing Mqtt in MDNS properties."
+    },
+    "error": {
+      "invalid_auth": "Login failed",
+      "no_apikey": "NO API key",
+      "setup_error": "Setup failed"
+    },
     "step": {
       "user": {
+        "title": "SenseCraft",
+        "description": "Select Action",
+        "data": {
+          "action": "Action"
+        }
+      },
+      "cloud": {
         "title": "SenseCraft",
         "description": "Please enter your [SenseCraft Data Platform]({sensecraft_url})(original SenseCAP Cloud platform) account and password.",
         "data": {
@@ -10,17 +29,49 @@
           "env": "Env"
         }
       },
-      "select": {
+      "cloud_filter": {
         "title": "Device",
         "description": "Select the device to set up.",
         "data": {
           "selected_device": "Select device"
         }
+      },
+      "local": {
+        "title": "SenseCraft",
+        "description": "Select the device to set up.",
+        "data": {
+          "device": "Device"
+        }
+      },
+      "local_sensecraft": {
+        "title": "Jetson",
+        "description": "Config Jetson",
+        "data": {
+          "host": "Host",
+          "name": "Name"
+        }
+      },
+      "local_sscma": {
+        "title": "grove_vision_ai_we2",
+        "description": "Config grove_vision_ai_we2",
+        "data": {
+          "id": "Id"
+        }
+      },
+      "sscma_mqtt": {
+        "title": "Setup MQTT Server",
+        "description": "Do you want to add `{name}` to Home Assistant?",
+        "data": {
+          "broker": "Broker",
+          "port": "Port",
+          "username": "Username",
+          "password": "Password"
+        }
+      },
+      "zeroconf_confirm": {
+        "title": "Discovered SenseCraft Device",
+        "description": "Do you want to add the ({name}) to Home Assistant?"
       }
-    },
-    "error": {
-      "invalid_auth": "Login failed",
-      "no_apikey": "NO API key"
     }
   },
   "options": {

@@ -5,33 +5,37 @@ DOMAIN = "sensecraft"
 ENV_CHINA = "china"
 ENV_GLOBAL = "global"
 SUPPORTED_ENV = [ENV_CHINA, ENV_GLOBAL]
+JETSON_NAME = "Jetson"
+GROVE_WE_2_NAME = "grove_vision_ai_we2"
+SUPPORTED_DEVICE = [JETSON_NAME, GROVE_WE_2_NAME]
+
 SELECTED_DEVICE = "selected_device"
 ACCOUNT_USERNAME = "username"
 ACCOUNT_PASSWORD = "password"
 
-ACCESS_ID = "access_id"
-ACCESS_KEY = "access_key"
+DATA_SOURCE = "data_source"
+SENSECRAFT = "sensecraft"
+SSCMA = "sscma"
+CLOUD = "cloud"
+
 ACCOUNT_ENV = "env"
-ACCOUNT_PASSWORD = "password"
-ORG_ID = "orgID"
 
+DEVICE_NAME = "device_name"
+DEVICE_HOST = "device_host"
+DEVICE_PORT = "device_port"
+DEVICE_MAC = "device_mac"
+DEVICE_ID = "device_id"
+DEVICE_TYPE = "device_type"
+SENSECRAFT_CLOUD = "sensecraft_cloud"
+SENSECRAFT_LOCAL = "sensecraft_local"
+SSCMA_LOCAL = "sscma_local"
+CONFIG_DATA = "config_data"
+MQTT_BROKER = "mqtt_broker"
+MQTT_PORT = "mqtt_port"
 
-PORTAL = "portal"
-OPENAPI = "openapi"
-OPENSTREAM = "openstream"
-
-ENV_URL = {
-    ENV_CHINA: {
-        PORTAL: 'https://sensecap.seeed.cn/portalapi',
-        OPENAPI: 'https://sensecap.seeed.cn/openapi',
-        OPENSTREAM: 'sensecap-openstream.seeed.cn',
-    },
-    ENV_GLOBAL: {
-        PORTAL: 'https://sensecap.seeed.cc/portalapi',
-        OPENAPI: 'https://sensecap.seeed.cc/openapi',
-        OPENSTREAM: 'sensecap-openstream.seeed.cc',   
-    }
-}
+BROKER = "broker"
+PORT = "port"
+MQTT_TOPIC = "mqtt_topic"
 
 MEASUREMENT_DICT = {
     "4097": [
