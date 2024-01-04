@@ -1,5 +1,8 @@
 import paho.mqtt.client as mqtt
 import threading
+import logging
+
+_LOGGER = logging.getLogger(__name__)
 
 class MQTTClient:
 
@@ -18,14 +21,14 @@ class MQTTClient:
             self.loop_stop()
 
     def on_connect(self, client, userdata, flags, rc):
-        print('mqtt connected', self.broker, rc)
+        _LOGGER.info('mqtt connected')
         if rc == 0:
             self.connectEvent.set()
         else:
-            print(f"mqtt connect failed with result code {rc}")
+            _LOGGER.error(f"mqtt connect failed with result code {rc}")
 
     def on_disconnect(self, client, userdata, rc):
-        print('mqtt disconnect', self.broker)
+        _LOGGER.info('mqtt disconnect: {rc}')
 
     def on_message(self, client, userdata, msg):
         if self.message_received is not None:

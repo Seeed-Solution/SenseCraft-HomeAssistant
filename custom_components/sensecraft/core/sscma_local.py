@@ -82,13 +82,13 @@ class SScmaLocal():
                     self.connected = False
                     return False
         except Exception as e:
-            print('setMqtt failed', e)
+            _LOGGER.error("MQTT setup failed")
             self.connected = False
             return False
 
     def on_device_connect(self, device):
-        _LOGGER.info("Device connected".center(100, "-"))
-        self.device.invoke(-1, False, True)
+        _LOGGER.info("Device connected")
+        self.device.Invoke(-1, False, True)
         self.device.tscore = 70
         self.device.tiou = 45
         self.classes = self.device.model.classes
@@ -103,7 +103,7 @@ class SScmaLocal():
     def on_message(self, msg):
         self.sscmaClient.on_recieve(msg.payload)
 
-    def on_monitor(self, message):
+    def on_monitor(self, device, message):
         image = message.get('image')
         # [[137, 95, 180, 165, 83, 0]]
         boxes = message.get('boxes')
@@ -146,9 +146,8 @@ class SScmaLocal():
                 )
                 self.hass.bus.fire(_event_type, {"value": counts[index]})
         
-        if image is not None:
-             if self.stream_callback is not None:
-                self.stream_callback(image)
+        if image is not None and self.stream_callback is not None:
+            self.stream_callback(image)
 
         
     def on_monitor_stream(self, callback):
