@@ -1,5 +1,7 @@
 """sensor platform."""
 from __future__ import annotations
+
+import asyncio
 import json
 import logging
 from .const import (
@@ -117,12 +119,30 @@ async def async_setup_entry(
         sscmaLocal: SScmaLocal = data[SSCMA_LOCAL]
         deviceId = sscmaLocal.deviceId
         deviceName = sscmaLocal.deviceName
-        classes = sscmaLocal.device.model.classes
-        entities = []
-        for key in classes:
-            result = InferenceResult(deviceId, deviceName, key)
-            entities.append(result)
-        async_add_entities(entities, update_before_add=False)
+
+        def classes_callback(classes):
+            asyncio.run(handle_classes_entity(classes))
+
+        sscmaLocal.on_classes_update(classes_callback)
+
+        async def handle_classes_entity(classes):
+            all_entity = []
+            old_entities = hass.data[DOMAIN].get(f"{config_entry.entry_id}_entities", [])
+            old_all_classes = []
+            for entity in old_entities:
+                # entity 在 all_entity 中没有的需要删除
+                old_all_classes.append(entity.name)
+                if entity.entity_id is not None and entity.name not in classes:
+                    await entity.async_remove(force_remove=True)
+            for key in classes:
+                # 如果 key 不在 old_all_entity 中说明需要添加，否则就是已经添加过的
+                if key not in old_all_classes:
+                    all_entity.append(InferenceResult(deviceId, deviceName, key))
+            if len(all_entity) != 0:
+                hass.data[DOMAIN][f"{config_entry.entry_id}_entities"] = all_entity
+                async_add_entities(all_entity, update_before_add=False)
+
+        await handle_classes_entity(sscmaLocal.device.model.classes)
 
 
 class CloudSensor(Entity):
@@ -155,6 +175,7 @@ class CloudSensor(Entity):
 
     async def async_added_to_hass(self) -> None:
         """Run when this Entity has been added to HA."""
+
         def handle_event(event):
             self._state = event.data.get('value')
             self.schedule_update_ha_state()
@@ -214,6 +235,7 @@ class JetsonDeviceInfo(Entity):
 
     async def async_added_to_hass(self) -> None:
         """Run when this Entity has been added to HA."""
+
         def handle_event(event):
             self._state = event.data.get('value')
             self.schedule_update_ha_state()
@@ -268,6 +290,7 @@ class InferenceResult(Entity):
 
     async def async_added_to_hass(self) -> None:
         """Run when this Entity has been added to HA."""
+
         def handle_event(event):
             self._state = event.data.get('value')
             self.schedule_update_ha_state()

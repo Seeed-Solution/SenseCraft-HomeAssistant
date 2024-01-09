@@ -35,8 +35,8 @@ class SScmaLocal():
         self.stream_callback = None
         self.device = None
         self.connected = False
+        self.current_classes = []
         self.connectEvent = threading.Event()
-        self.classes = []
         self.classes_update_callback = None
 
     def to_config(self):
@@ -98,7 +98,6 @@ class SScmaLocal():
         self.device.Invoke(-1, False, True)
         self.device.tscore = 70
         self.device.tiou = 45
-        self.classes = self.device.model.classes
         self.connectEvent.set()
 
     def on_classes_update(self, callback):
@@ -123,7 +122,9 @@ class SScmaLocal():
         points = message.get('points')
         # [[83, 0]]
         classes = message.get('classes')
-
+        if self.current_classes != self.device.model.classes and self.classes_update_callback:
+            self.current_classes = self.device.model.classes
+            self.classes_update_callback(self.device.model.classes)
         counts = {}
         length = len(self.device.model.classes)
         for index in range(length):
