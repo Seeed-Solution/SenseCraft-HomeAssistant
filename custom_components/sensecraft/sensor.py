@@ -117,7 +117,7 @@ async def async_setup_entry(
         sscmaLocal: SScmaLocal = data[SSCMA_LOCAL]
         deviceId = sscmaLocal.deviceId
         deviceName = sscmaLocal.deviceName
-        classes = sscmaLocal.classes
+        classes = sscmaLocal.device.model.classes
         entities = []
         for key in classes:
             result = InferenceResult(deviceId, deviceName, key)
@@ -191,7 +191,7 @@ class CloudSensor(Entity):
     def state(self):
         return self._state
 
-    def should_poll():
+    def should_poll(self):
         return True
 
 
@@ -245,7 +245,7 @@ class JetsonDeviceInfo(Entity):
     def state(self):
         return self._state
 
-    def should_poll():
+    def should_poll(self):
         return True
 
 
@@ -297,5 +297,5 @@ class InferenceResult(Entity):
     def state(self):
         return self._state
 
-    def should_poll():
+    def should_poll(self):
         return True

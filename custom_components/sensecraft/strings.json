@@ -10,7 +10,10 @@
     "error": {
       "invalid_auth": "Login failed",
       "no_apikey": "NO API key",
-      "setup_error": "Setup failed"
+      "setup_error": "Setup failed",
+      "mqtt_connect_timeout": "MQTT connection timeout",
+      "mqtt_connect_error": "MQTT connection error",
+      "mqtt_connect_except": "MQTT connection exception"
     },
     "step": {
       "user": {

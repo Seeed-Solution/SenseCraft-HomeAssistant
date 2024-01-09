@@ -54,11 +54,10 @@ from .const import (
     CONFIG_DATA,
     DATA_SOURCE,
     CLOUD,
-) 
+)
 
 _LOGGER = logging.getLogger(__name__)
 SenseCraft_URL = "https://sensecap.seeed.cc/"
-
 
 TEXT_SELECTOR = TextSelector(TextSelectorConfig(type=TextSelectorType.TEXT))
 PASSWORD_SELECTOR = TextSelector(TextSelectorConfig(type=TextSelectorType.PASSWORD))
@@ -74,6 +73,7 @@ DEVICE_TYPE_SELECTOR = SelectSelector(
         mode=SelectSelectorMode.DROPDOWN,
     )
 )
+
 
 class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     """Handle a config flow for Sensecap."""
@@ -98,12 +98,12 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 return await self.async_step_cloud()
             elif action == 'local':
                 return await self.async_step_local()
-            
+
         actions = {
             'cloud': 'Add devices using SenseCraft Account (账号集成)',
             'local': 'Add device using host/id (局域网集成)',
         }
-        
+
         return self.async_show_form(
             step_id='user',
             data_schema=vol.Schema({
@@ -111,7 +111,7 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             }),
             errors=errors,
         )
-                
+
     async def async_step_cloud(
         self, user_input: dict[str, Any] | None = None
     ) -> FlowResult:
@@ -140,9 +140,10 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         fields[vol.Optional(ACCOUNT_ENV, default=user_input.get(ACCOUNT_ENV, ENV_CHINA))] = ENV_SELECTOR
 
         return self.async_show_form(
-            step_id="cloud", data_schema=vol.Schema(fields), errors=errors, description_placeholders={"sensecraft_url": SenseCraft_URL},
+            step_id="cloud", data_schema=vol.Schema(fields), errors=errors,
+            description_placeholders={"sensecraft_url": SenseCraft_URL},
         )
-        
+
     async def async_step_cloud_filter(
         self, user_input: dict[str, Any] | None = None
     ) -> FlowResult:
@@ -153,22 +154,23 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             selectDevice = user_input[SELECTED_DEVICE]
             cloud.selectedDeviceEuis = selectDevice
             return self.async_create_entry(title="Cloud Device", data={
-                        CONFIG_DATA: cloud.to_config(),
-                        DATA_SOURCE: CLOUD
-                    })
+                CONFIG_DATA: cloud.to_config(),
+                DATA_SOURCE: CLOUD
+            })
 
         deviceList = await cloud.getDeviceList()
-        all_device = {device.get('device_eui'): f"{device.get('device_eui')} {device.get('device_name')}" for device in deviceList}
+        all_device = {device.get('device_eui'): f"{device.get('device_eui')} {device.get('device_name')}" for device in
+                      deviceList}
         select_schema = vol.Schema({
             vol.Required(SELECTED_DEVICE): cv.multi_select(
-                    all_device
-                )
+                all_device
+            )
         })
 
         return self.async_show_form(
             step_id="cloud_filter", data_schema=select_schema, errors=errors
         )
-    
+
     async def async_step_local(
         self, user_input: dict[str, Any] | None = None
     ) -> FlowResult:
@@ -182,14 +184,14 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 return await self.async_step_local_sensecraft()
             elif device == GROVE_WE_2_NAME:
                 return await self.async_step_local_sscma()
-                
+
         fields: OrderedDict[Any, Any] = OrderedDict()
         fields[vol.Optional('device', default=user_input.get('device', JETSON_NAME))] = DEVICE_TYPE_SELECTOR
 
         return self.async_show_form(
             step_id="local", data_schema=vol.Schema(fields), errors=errors
         )
-    
+
     async def async_step_local_sensecraft(
         self, user_input: dict[str, Any] | None = None
     ) -> FlowResult:
@@ -219,7 +221,7 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                         CONFIG_DATA: config,
                         DATA_SOURCE: SENSECRAFT
                     })
-                else: 
+                else:
                     errors["base"] = "setup_error"
             except Exception:
                 _LOGGER.exception("Unexpected exception")
@@ -232,7 +234,7 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         return self.async_show_form(
             step_id="local_sensecraft", data_schema=vol.Schema(fields), errors=errors
         )
-    
+
     async def async_step_local_sscma(
         self, user_input: dict[str, Any] | None = None
     ) -> FlowResult:
@@ -261,12 +263,12 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         return self.async_show_form(
             step_id="local_sscma", data_schema=vol.Schema(fields), errors=errors
         )
-        
+
     async def async_step_zeroconf(
         self, discovery_info: zeroconf.ZeroconfServiceInfo
     ) -> FlowResult:
         """Handle zeroconf discovery."""
-        print('zeroconf',discovery_info)
+        print('zeroconf', discovery_info)
         type = discovery_info.type
         name = discovery_info.name
         device_name = name.removesuffix("." + type)
@@ -320,7 +322,6 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             else:
                 return await self.async_step_zeroconf_confirm()
 
-    
     async def async_step_zeroconf_confirm(
         self, user_input: dict[str, Any] | None = None
     ) -> FlowResult:
@@ -339,13 +340,13 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 CONFIG_DATA: config,
                 DATA_SOURCE: device_type
             })
-            
+
         return self.async_show_form(
             step_id="zeroconf_confirm",
             errors=errors,
             description_placeholders={"name": device_name},
         )
-    
+
     async def async_step_sscma_mqtt(
         self, user_input: dict[str, Any] | None = None
     ) -> FlowResult:
@@ -359,37 +360,37 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             user_input = {}
         else:
             try:
-                local = SScmaLocal(self.hass, device)                
+                local = SScmaLocal(self.hass, device)
                 local.mqttBroker = user_input[BROKER]
                 local.mqttPort = user_input[PORT]
                 local.mqttUsername = user_input[ACCOUNT_USERNAME]
                 local.mqttPassword = user_input[ACCOUNT_PASSWORD]
-                
-                if local.setMqtt():
+                mqtt_result = local.setMqtt()
+                if mqtt_result is None:
                     local.stop()
                     config = local.to_config()
                     return self.async_create_entry(title=device_name, data={
                         CONFIG_DATA: config,
                         DATA_SOURCE: SSCMA
                     })
-                else: 
-                    errors["base"] = "setup_error"
-            except Exception:
-                _LOGGER.exception("Unexpected exception")
+                else:
+                    errors["base"] = mqtt_result.get("err")
+            except Exception as e:
+                _LOGGER.exception("Unexpected exception", e)
                 errors["base"] = "setup_error"
         fields: OrderedDict[Any, Any] = OrderedDict()
         fields[vol.Required(BROKER, default=user_input.get(BROKER, mqtt_broker))] = TEXT_SELECTOR
         fields[vol.Required(PORT, default=user_input.get(PORT, mqtt_port))] = TEXT_SELECTOR
         fields[vol.Optional(ACCOUNT_USERNAME, default=user_input.get(ACCOUNT_USERNAME, ''))] = TEXT_SELECTOR
         fields[vol.Optional(ACCOUNT_PASSWORD, default=user_input.get(ACCOUNT_PASSWORD, ''))] = PASSWORD_SELECTOR
-        
+
         return self.async_show_form(
             step_id="sscma_mqtt",
             data_schema=vol.Schema(fields),
             errors=errors,
             description_placeholders={"name": device_name}
         )
-    
+
     # @staticmethod
     # @callback
     # def async_get_options_flow(config_entry):
@@ -400,8 +401,7 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     #         return OptionsFlowHandler(config_entry)
     #     else :
     #         return MyOptionsFlowHandler(config_entry)
-        
-        
+
 
 # class OptionsFlowHandler(config_entries.OptionsFlow):
 #     """Handles options flow for the component."""
@@ -433,7 +433,7 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 #         return self.async_show_form(
 #             step_id="init", data_schema=select_schema, errors=errors
 #         )
-    
+
 # class MyOptionsFlowHandler(config_entries.OptionsFlow):
 
 #     @staticmethod
@@ -445,6 +445,6 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
 #     async def async_step_init(self, user_input=None):
 #         return self.async_show_form(step_id="init")
-        
+
 class NoApiKey(exceptions.HomeAssistantError):
     """Error to indicate there is an invalid ApiKey."""

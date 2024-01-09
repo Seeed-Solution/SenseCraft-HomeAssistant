@@ -7,7 +7,9 @@ import threading
 from ..const import (
     DOMAIN,
 )
+
 _LOGGER = logging.getLogger(__name__)
+
 
 class SScmaLocal():
 
@@ -22,8 +24,8 @@ class SScmaLocal():
         self.mqttPassword = config.get('mqtt_password')
         self.mqttTopic = config.get('mqtt_topic')
         if self.mqttTopic is not None:
-            self.rx_topic = self.mqttTopic+"/tx"
-            self.tx_topic = self.mqttTopic+"/rx"
+            self.rx_topic = self.mqttTopic + "/tx"
+            self.tx_topic = self.mqttTopic + "/rx"
         else:
             self.rx_topic = ""
             self.tx_topic = ""
@@ -35,6 +37,7 @@ class SScmaLocal():
         self.connected = False
         self.connectEvent = threading.Event()
         self.classes = []
+        self.classes_update_callback = None
 
     def to_config(self):
         return {
@@ -77,14 +80,18 @@ class SScmaLocal():
                 if self.connectEvent.wait(timeout=30):
                     self.device.on_monitor = self.on_monitor
                     self.connected = True
-                    return True
+                    return None
                 else:
                     self.connected = False
-                    return False
+                    self.stop()
+                    return {'err': 'mqtt_connect_timeout'}
+            else:
+                self.connected = False
+                return {'err': 'mqtt_connect_error'}
         except Exception as e:
-            _LOGGER.error("MQTT setup failed")
+            _LOGGER.error("MQTT setup failed", e)
             self.connected = False
-            return False
+            return {'err': 'mqtt_connect_except'}
 
     def on_device_connect(self, device):
         _LOGGER.info("Device connected")
@@ -93,6 +100,9 @@ class SScmaLocal():
         self.device.tiou = 45
         self.classes = self.device.model.classes
         self.connectEvent.set()
+
+    def on_classes_update(self, callback):
+        self.classes_update_callback = callback
 
     def stop(self):
         if self.device:
@@ -115,7 +125,7 @@ class SScmaLocal():
         classes = message.get('classes')
 
         counts = {}
-        length = len(self.classes)
+        length = len(self.device.model.classes)
         for index in range(length):
             counts[index] = 0
 
@@ -139,19 +149,17 @@ class SScmaLocal():
                         counts[classId] += 1
 
         for index in counts:
-            if(len(self.classes) > index):
-                name = self.classes[index]
-                _event_type = ("{domain}_inference_{deviceId}_{name}").format(
-                    domain=DOMAIN,
-                    deviceId=self.deviceId,
-                    name=name.lower()
-                )
-                self.hass.bus.fire(_event_type, {"value": counts[index]})
-        
+            name = self.device.model.classes[index]
+            _event_type = ("{domain}_inference_{deviceId}_{name}").format(
+                domain=DOMAIN,
+                deviceId=self.deviceId,
+                name=name.lower()
+            )
+            self.hass.bus.fire(_event_type, {"value": counts[index]})
+
         if image is not None and self.stream_callback is not None:
             self.stream_callback(image)
 
-        
     def on_monitor_stream(self, callback):
         if not self.connected:
             self.setMqtt()
