@@ -74,7 +74,8 @@ async def async_setup_entry(
 
         entities = []
         for deviceInfo in deviceInfoList:
-            entities.append(CloudSensor(deviceInfo))
+            if deviceInfo.get("measurementID") in MEASUREMENT_DICT:
+                entities.append(CloudSensor(deviceInfo))
         # add entities to HA
         async_add_entities(entities, update_before_add=True)
         await cloud.mqttConnect()

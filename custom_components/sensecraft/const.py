@@ -558,6 +558,11 @@ MEASUREMENT_DICT = {
         " ",
         "mdi:bluetooth"
     ],
+    "5003": [
+        "Event Status",
+        " ",
+        "mdi:alert-box-outline"
+    ],
     "5100": [
         "Switch",
         "",
