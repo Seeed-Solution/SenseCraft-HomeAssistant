@@ -55,8 +55,8 @@
         }
       },
       "local_sscma": {
-        "title": "grove_vision_ai_we2",
-        "description": "Config grove_vision_ai_we2",
+        "title": "grove_vision_ai_v2",
+        "description": "Config grove_vision_ai_v2",
         "data": {
           "id": "Id"
         }
