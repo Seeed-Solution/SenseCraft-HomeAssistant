@@ -8,19 +8,23 @@ from .const import (
     SENSECRAFT_CLOUD,
     SENSECRAFT_LOCAL,
     SSCMA_LOCAL,
+    WATCHER_LOCAL,
     CONFIG_DATA,
     DATA_SOURCE,
     CLOUD,
     SENSECRAFT,
     SSCMA,
+    WATCHER
 )
 
 # from .mqtt_assistant import MQTTAssistant
 from .core.sensecraft_cloud import SenseCraftCloud
 from .core.sensecraft_local import SenseCraftLocal
 from .core.sscma_local import SScmaLocal
+from .core.watcher_local import WatcherLocal
 
-PLATFORMS = [Platform.CAMERA, Platform.SENSOR, Platform.NUMBER, Platform.SELECT]
+PLATFORMS = [Platform.CAMERA, Platform.SENSOR, Platform.NUMBER,
+             Platform.SELECT, Platform.IMAGE]
 
 
 async def async_setup_entry(
@@ -40,7 +44,8 @@ async def async_setup_entry(
         data[SENSECRAFT_CLOUD] = cloud
 
     elif data_source == SENSECRAFT:
-        senseCraftLocal = SenseCraftLocal.from_config(hass, data.get(CONFIG_DATA))
+        senseCraftLocal = SenseCraftLocal.from_config(
+            hass, data.get(CONFIG_DATA))
         senseCraftLocal.setMqtt()
         data[SENSECRAFT_LOCAL] = senseCraftLocal
 
@@ -48,6 +53,11 @@ async def async_setup_entry(
         sscmaLocal = SScmaLocal.from_config(hass, data.get(CONFIG_DATA))
         sscmaLocal.setMqtt()
         data[SSCMA_LOCAL] = sscmaLocal
+
+    elif data_source == WATCHER:
+        watcherLocal = WatcherLocal.from_config(hass, data.get(CONFIG_DATA))
+        watcherLocal.setMqtt()
+        data[WATCHER_LOCAL] = watcherLocal
 
     hass.data[DOMAIN][entry.entry_id] = data
 
@@ -70,6 +80,9 @@ async def async_unload_entry(
     elif data_source == SSCMA:
         sscmaLocal: SScmaLocal = data[SSCMA_LOCAL]
         sscmaLocal.stop()
+    elif data_source == WATCHER:
+        watcherLocal: WatcherLocal = data[WATCHER_LOCAL]
+        watcherLocal.stop()
 
     unload_ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
     if unload_ok:
