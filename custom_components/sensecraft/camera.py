@@ -67,7 +67,6 @@ class CameraBase(Camera):
         return self._stream_source
 
     def received_image(self, frame):
-        print('received_image')
         self._stream_source = b64decode(frame)
     
     def should_poll():

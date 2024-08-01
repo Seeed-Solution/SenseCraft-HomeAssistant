@@ -187,18 +187,18 @@ class CloudSensor(Entity):
 
     async def async_added_to_hass(self) -> None:
         """Run when this Entity has been added to HA."""
-        def handle_event(event):
-            self._state = event.data.get('value')
-            self.schedule_update_ha_state()
-
         self._event = self.hass.bus.async_listen(
-            self._event_type, handle_event)
+            self._event_type, self.handle_event)
 
     async def async_will_remove_from_hass(self) -> None:
         """Entity being removed from hass."""
         if self._event:
             self._event()
             self._event = None
+
+    def handle_event(self, event):
+        self._state = event.data.get('value')
+        self.async_write_ha_state()
 
     @property
     def device_info(self) -> DeviceInfo:
@@ -246,18 +246,18 @@ class JetsonDeviceInfo(Entity):
 
     async def async_added_to_hass(self) -> None:
         """Run when this Entity has been added to HA."""
-        def handle_event(event):
-            self._state = event.data.get('value')
-            self.schedule_update_ha_state()
-
         self._event = self.hass.bus.async_listen(
-            self._event_type, handle_event)
+            self._event_type, self.handle_event)
 
     async def async_will_remove_from_hass(self) -> None:
         """Entity being removed from hass."""
         if self._event:
             self._event()
             self._event = None
+
+    def handle_event(self, event):
+        self._state = event.data.get('value')
+        self.async_write_ha_state()
 
     @property
     def device_info(self) -> DeviceInfo:
@@ -300,18 +300,18 @@ class InferenceResult(Entity):
 
     async def async_added_to_hass(self) -> None:
         """Run when this Entity has been added to HA."""
-        def handle_event(event):
-            self._state = event.data.get('value')
-            self.schedule_update_ha_state()
-
         self._event = self.hass.bus.async_listen(
-            self._event_type, handle_event)
+            self._event_type, self.handle_event)
 
     async def async_will_remove_from_hass(self) -> None:
         """Entity being removed from hass."""
         if self._event:
             self._event()
             self._event = None
+
+    def handle_event(self, event):
+        self._state = event.data.get('value')
+        self.async_write_ha_state()
 
     @property
     def device_info(self) -> DeviceInfo:
@@ -362,7 +362,7 @@ class WatcherSensor(Entity):
 
     def handle_event(self, event):
         self._state = event.data.get('value')
-        self.schedule_update_ha_state()
+        self.async_write_ha_state()
 
     @property
     def device_info(self) -> DeviceInfo:
@@ -411,7 +411,7 @@ class AlarmSensor(Entity):
 
     def handle_event(self, event):
         self._state = event.data.get('text')
-        self.schedule_update_ha_state()
+        self.async_write_ha_state()
 
     @property
     def device_info(self) -> DeviceInfo:

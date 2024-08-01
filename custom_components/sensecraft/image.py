@@ -69,6 +69,7 @@ class WatcherImage(ImageEntity):
     def handle_event(self, event):
         self._image_base64 = event.data.get('image')
         self._attr_image_last_updated = dt_util.utcnow()
+        self.async_write_ha_state()
 
     @property
     def device_info(self) -> DeviceInfo:
