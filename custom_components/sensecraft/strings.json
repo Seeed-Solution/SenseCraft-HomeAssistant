@@ -5,7 +5,8 @@
       "mdns_missing_mac": "Missing MAC address in MDNS properties.",
       "mdns_missing_host": "Missing Host in MDNS properties.",
       "mdns_missing_port": "Missing Port in MDNS properties.",
-      "mdns_missing_mqtt": "Missing Mqtt in MDNS properties."
+      "mdns_missing_mqtt": "Missing Mqtt in MDNS properties.",
+      "already_configured": "Device is already configured"
     },
     "error": {
       "invalid_auth": "Login failed",
@@ -60,10 +61,14 @@
       },
       "local_watcher": {
         "title": "Watcher",
-        "description": "Config Watcher",
+        "description": "HTTP Server: `{host}`",
         "data": {
           "eui": "EUI"
         }
+      },
+      "watcher_confirm": {
+        "title": "Watcher",
+        "description": "Do you want to add `{name}` to Home Assistant?"
       },
       "mqtt": {
         "title": "Setup MQTT Server",

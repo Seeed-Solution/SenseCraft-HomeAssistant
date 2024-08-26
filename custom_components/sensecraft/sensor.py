@@ -177,7 +177,7 @@ class CloudSensor(Entity):
         else:
             self._device_name = deviceName
 
-        self._state = None
+        self._state = 'unavailable'
         self._event = None
         self._measurementID = deviceInfo['measurementID']
         measurementInfo = MEASUREMENT_DICT[self._measurementID]
@@ -241,7 +241,7 @@ class JetsonDeviceInfo(Entity):
         )
         self._device_name = name
         self._attr_name = type
-        self._state = 0
+        self._state = 'unavailable'
         self._event = None
 
     async def async_added_to_hass(self) -> None:
@@ -295,7 +295,7 @@ class InferenceResult(Entity):
         )
         self._device_name = deviceName
         self._attr_name = object
-        self._state = 0
+        self._state = 'unavailable'
         self._event = None
 
     async def async_added_to_hass(self) -> None:
@@ -346,7 +346,7 @@ class WatcherSensor(Entity):
             id=self._attr_unique_id
         )
         self._attr_name = type
-        self._state = 0
+        self._state = 'unavailable'
         self._event = None
 
     async def async_added_to_hass(self) -> None:
@@ -395,7 +395,7 @@ class AlarmSensor(Entity):
             id=self._attr_unique_id
         )
         self._attr_name = type
-        self._state = 0
+        self._state = 'unavailable'
         self._event = None
 
     async def async_added_to_hass(self) -> None:

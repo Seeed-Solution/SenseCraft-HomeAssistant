@@ -6,16 +6,13 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.device_registry import DeviceInfo
 from .core.sensecraft_local import SenseCraftLocal
 from .core.sscma_local import SScmaLocal
-from .core.watcher_local import WatcherLocal
 from .const import (
     DOMAIN,
     SENSECRAFT_LOCAL,
     SSCMA_LOCAL,
-    WATCHER_LOCAL,
     DATA_SOURCE,
     SENSECRAFT,
     SSCMA,
-    WATCHER
 )
 
 async def async_setup_entry(
@@ -35,11 +32,6 @@ async def async_setup_entry(
         camera = SSCMACamera(sscmaLocal.deviceId, sscmaLocal.deviceName)
         sscmaLocal.on_monitor_stream(camera.received_image)
         async_add_entities([camera], False)
-    # elif data_source == WATCHER:
-    #     watcherLocal: WatcherLocal = data[WATCHER_LOCAL]
-    #     camera = WatcherCamera(watcherLocal.deviceId, watcherLocal.deviceName)
-    #     watcherLocal.on_monitor_stream(camera.received_image)
-    #     async_add_entities([camera], False)
 
 
 class CameraBase(Camera):
@@ -119,26 +111,3 @@ class SSCMACamera(CameraBase):
             model=self._model,
             sw_version="1.0",
         )
-
-# class WatcherCamera(CameraBase):
-
-#     def __init__(
-#         self,
-#         id: str, 
-#         name:str,
-#     ) -> None:
-#         """Initialize the image entity."""
-#         super().__init__(id, name)
-
-#     @property
-#     def device_info(self) -> DeviceInfo:
-#         """Return the device info."""
-#         return DeviceInfo(
-#             identifiers={
-#                 (DOMAIN, self._attr_unique_id)
-#             },
-#             name=self._device_name,
-#             manufacturer="Seeed Studio",
-#             model="Watcher",
-#             sw_version="1.0",
-#         )

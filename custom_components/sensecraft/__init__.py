@@ -56,7 +56,6 @@ async def async_setup_entry(
 
     elif data_source == WATCHER:
         watcherLocal = WatcherLocal.from_config(hass, data.get(CONFIG_DATA))
-        watcherLocal.setMqtt()
         data[WATCHER_LOCAL] = watcherLocal
 
     hass.data[DOMAIN][entry.entry_id] = data
@@ -80,9 +79,6 @@ async def async_unload_entry(
     elif data_source == SSCMA:
         sscmaLocal: SScmaLocal = data[SSCMA_LOCAL]
         sscmaLocal.stop()
-    elif data_source == WATCHER:
-        watcherLocal: WatcherLocal = data[WATCHER_LOCAL]
-        watcherLocal.stop()
 
     unload_ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
     if unload_ok:
