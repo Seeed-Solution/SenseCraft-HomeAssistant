@@ -1,8 +1,5 @@
 import paho.mqtt.client as mqtt
 import threading
-import logging
-
-_LOGGER = logging.getLogger(__name__)
 
 class MQTTClient:
 
@@ -21,38 +18,31 @@ class MQTTClient:
             self.loop_stop()
 
     def on_connect(self, client, userdata, flags, rc):
-        _LOGGER.info('mqtt connected')
+        print('mqtt connected', self.broker, rc)
         if rc == 0:
             self.connectEvent.set()
         else:
-            self.connectEvent.clear()
-            _LOGGER.error(f"mqtt connect failed with result code {rc}")
+            print(f"mqtt connect failed with result code {rc}")
 
     def on_disconnect(self, client, userdata, rc):
-        _LOGGER.info(f'mqtt disconnect: {rc}')
+        print('mqtt disconnect', self.broker)
 
     def on_message(self, client, userdata, msg):
         if self.message_received is not None:
             self.message_received(msg)
 
     def connect(self):
-        try:
-            self.client.on_connect = self.on_connect
-            self.client.on_disconnect = self.on_disconnect
-            self.client.on_message = self.on_message
+        self.client.on_connect = self.on_connect
+        self.client.on_disconnect = self.on_disconnect
+        self.client.on_message = self.on_message
 
-            self.client.username_pw_set(self.username, self.password)
-            self.client.connect(self.broker, self.port, 120)
-            self.loop_start()
-            # 等待连接结果
-            if self.connectEvent.wait(timeout=10):
-                return True
-            else:
-                self.loop_stop()
-                return False
-        except Exception as e:
-            _LOGGER.error("MQTT connect failed", e)
-            self.loop_stop()
+        self.client.username_pw_set(self.username, self.password)
+        self.client.connect(self.broker, self.port, 120)
+        self.loop_start()
+        # 等待连接结果
+        if self.connectEvent.wait(timeout=10):
+            return True
+        else:
             return False
 
     def loop_start(self):

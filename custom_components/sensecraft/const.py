@@ -7,7 +7,8 @@ ENV_GLOBAL = "global"
 SUPPORTED_ENV = [ENV_CHINA, ENV_GLOBAL]
 JETSON_NAME = "Jetson"
 GROVE_WE_2_NAME = "grove_vision_ai_we2"
-SUPPORTED_DEVICE = [JETSON_NAME, GROVE_WE_2_NAME]
+WATCHER = "Watcher"
+SUPPORTED_DEVICE = [JETSON_NAME, GROVE_WE_2_NAME, WATCHER]
 
 SELECTED_DEVICE = "selected_device"
 ACCOUNT_USERNAME = "username"
@@ -29,6 +30,7 @@ DEVICE_TYPE = "device_type"
 SENSECRAFT_CLOUD = "sensecraft_cloud"
 SENSECRAFT_LOCAL = "sensecraft_local"
 SSCMA_LOCAL = "sscma_local"
+WATCHER_LOCAL = "watcher_local"
 CONFIG_DATA = "config_data"
 MQTT_BROKER = "mqtt_broker"
 MQTT_PORT = "mqtt_port"
@@ -557,11 +559,6 @@ MEASUREMENT_DICT = {
         "Bluetooth Beacon MAC Address",
         " ",
         "mdi:bluetooth"
-    ],
-    "5003": [
-        "Event Status",
-        " ",
-        "mdi:alert-box-outline"
     ],
     "5100": [
         "Switch",

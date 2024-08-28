@@ -1,19 +1,14 @@
 """sensor platform."""
 from __future__ import annotations
-
-import asyncio
 import json
 import logging
-from .const import (
-    DOMAIN,
-    MEASUREMENT_DICT
-)
 from homeassistant import config_entries
 from homeassistant.core import HomeAssistant
 
 from .core.sensecraft_cloud import SenseCraftCloud
 from .core.sensecraft_local import SenseCraftLocal
 from .core.sscma_local import SScmaLocal
+from .core.watcher_local import WatcherLocal
 from homeassistant.const import (
     PERCENTAGE,
     TEMP_CELSIUS,
@@ -30,14 +25,17 @@ from homeassistant.helpers.typing import ConfigType, DiscoveryInfoType
 from homeassistant.components.select import SelectEntity
 from homeassistant.const import Platform
 from .const import (
+    MEASUREMENT_DICT,
     DOMAIN,
     SENSECRAFT_CLOUD,
     SENSECRAFT_LOCAL,
     SSCMA_LOCAL,
+    WATCHER_LOCAL,
     DATA_SOURCE,
     CLOUD,
     SENSECRAFT,
     SSCMA,
+    WATCHER
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -74,8 +72,7 @@ async def async_setup_entry(
 
         entities = []
         for deviceInfo in deviceInfoList:
-            if deviceInfo.get("measurementID") in MEASUREMENT_DICT:
-                entities.append(CloudSensor(deviceInfo))
+            entities.append(CloudSensor(deviceInfo))
         # add entities to HA
         async_add_entities(entities, update_before_add=True)
         await cloud.mqttConnect()
@@ -120,30 +117,44 @@ async def async_setup_entry(
         sscmaLocal: SScmaLocal = data[SSCMA_LOCAL]
         deviceId = sscmaLocal.deviceId
         deviceName = sscmaLocal.deviceName
+        classes = sscmaLocal.classes
+        entities = []
+        for key in classes:
+            result = InferenceResult(deviceId, deviceName, key)
+            entities.append(result)
+        async_add_entities(entities, update_before_add=False)
 
-        def classes_callback(classes):
-            asyncio.run(handle_classes_entity(classes))
+    elif data_source == WATCHER:
+        watcherLocal: WatcherLocal = data[WATCHER_LOCAL]
+        eui = watcherLocal.deviceId
+        entities = []
 
-        sscmaLocal.on_classes_update(classes_callback)
+        temperature = WatcherSensor(eui, 'temperature')
+        temperature._attr_name = "Temperature"
+        temperature._attr_unit_of_measurement = TEMP_CELSIUS
+        temperature._attr_icon = "mdi:temperature-celsius"
 
-        async def handle_classes_entity(classes):
-            all_entity = []
-            old_entities = hass.data[DOMAIN].get(f"{config_entry.entry_id}_entities", [])
-            old_all_classes = []
-            for entity in old_entities:
-                # entity 在 all_entity 中没有的需要删除
-                old_all_classes.append(entity.name)
-                if entity.entity_id is not None and entity.name not in classes:
-                    await entity.async_remove(force_remove=True)
-            for key in classes:
-                # 如果 key 不在 old_all_entity 中说明需要添加，否则就是已经添加过的
-                if key not in old_all_classes:
-                    all_entity.append(InferenceResult(deviceId, deviceName, key))
-            if len(all_entity) != 0:
-                hass.data[DOMAIN][f"{config_entry.entry_id}_entities"] = all_entity
-                async_add_entities(all_entity, update_before_add=False)
+        entities.append(temperature)
 
-        await handle_classes_entity(sscmaLocal.device.model.classes)
+        humidity = WatcherSensor(eui, 'humidity')
+
+        humidity._attr_name = "Air Humidity"
+        humidity._attr_unit_of_measurement = "% RH",
+        humidity._attr_icon = "mdi:water-percent"
+        entities.append(humidity)
+
+        co2 = WatcherSensor(eui, 'co2')
+        co2._attr_name = "CO2"
+        co2._attr_unit_of_measurement = "ppm",
+        co2._attr_icon = "mdi:molecule-co2"
+        entities.append(co2)
+
+        alarm = AlarmSensor(eui)
+        alarm._attr_name = "Alarm"
+        alarm._attr_icon = "mdi:alarm-light"
+        entities.append(alarm)
+
+        async_add_entities(entities, update_before_add=False)
 
 
 class CloudSensor(Entity):
@@ -166,7 +177,7 @@ class CloudSensor(Entity):
         else:
             self._device_name = deviceName
 
-        self._state = None
+        self._state = 'unavailable'
         self._event = None
         self._measurementID = deviceInfo['measurementID']
         measurementInfo = MEASUREMENT_DICT[self._measurementID]
@@ -176,19 +187,18 @@ class CloudSensor(Entity):
 
     async def async_added_to_hass(self) -> None:
         """Run when this Entity has been added to HA."""
-
-        def handle_event(event):
-            self._state = event.data.get('value')
-            self.schedule_update_ha_state()
-
         self._event = self.hass.bus.async_listen(
-            self._event_type, handle_event)
+            self._event_type, self.handle_event)
 
     async def async_will_remove_from_hass(self) -> None:
         """Entity being removed from hass."""
         if self._event:
             self._event()
             self._event = None
+
+    def handle_event(self, event):
+        self._state = event.data.get('value')
+        self.async_write_ha_state()
 
     @property
     def device_info(self) -> DeviceInfo:
@@ -213,7 +223,7 @@ class CloudSensor(Entity):
     def state(self):
         return self._state
 
-    def should_poll(self):
+    def should_poll():
         return True
 
 
@@ -231,24 +241,23 @@ class JetsonDeviceInfo(Entity):
         )
         self._device_name = name
         self._attr_name = type
-        self._state = 0
+        self._state = 'unavailable'
         self._event = None
 
     async def async_added_to_hass(self) -> None:
         """Run when this Entity has been added to HA."""
-
-        def handle_event(event):
-            self._state = event.data.get('value')
-            self.schedule_update_ha_state()
-
         self._event = self.hass.bus.async_listen(
-            self._event_type, handle_event)
+            self._event_type, self.handle_event)
 
     async def async_will_remove_from_hass(self) -> None:
         """Entity being removed from hass."""
         if self._event:
             self._event()
             self._event = None
+
+    def handle_event(self, event):
+        self._state = event.data.get('value')
+        self.async_write_ha_state()
 
     @property
     def device_info(self) -> DeviceInfo:
@@ -268,7 +277,7 @@ class JetsonDeviceInfo(Entity):
     def state(self):
         return self._state
 
-    def should_poll(self):
+    def should_poll():
         return True
 
 
@@ -286,24 +295,23 @@ class InferenceResult(Entity):
         )
         self._device_name = deviceName
         self._attr_name = object
-        self._state = 0
+        self._state = 'unavailable'
         self._event = None
 
     async def async_added_to_hass(self) -> None:
         """Run when this Entity has been added to HA."""
-
-        def handle_event(event):
-            self._state = event.data.get('value')
-            self.schedule_update_ha_state()
-
         self._event = self.hass.bus.async_listen(
-            self._event_type, handle_event)
+            self._event_type, self.handle_event)
 
     async def async_will_remove_from_hass(self) -> None:
         """Entity being removed from hass."""
         if self._event:
             self._event()
             self._event = None
+
+    def handle_event(self, event):
+        self._state = event.data.get('value')
+        self.async_write_ha_state()
 
     @property
     def device_info(self) -> DeviceInfo:
@@ -321,5 +329,104 @@ class InferenceResult(Entity):
     def state(self):
         return self._state
 
-    def should_poll(self):
+    def should_poll():
         return True
+
+
+class WatcherSensor(Entity):
+    def __init__(self, eui: str, type: str):
+        """Initialize the sensor."""
+        self._eui = eui
+        self._attr_unique_id = ("watcher_{type}_{eui}").format(
+            type=type,
+            eui=eui,
+        )
+        self._event_type = ("{domain}_{id}").format(
+            domain=DOMAIN,
+            id=self._attr_unique_id
+        )
+        self._attr_name = type
+        self._state = 'unavailable'
+        self._event = None
+
+    async def async_added_to_hass(self) -> None:
+        """Run when this Entity has been added to HA."""
+        self._event = self.hass.bus.async_listen(
+            self._event_type, self.handle_event)
+
+    async def async_will_remove_from_hass(self) -> None:
+        """Entity being removed from hass."""
+        if self._event:
+            self._event()
+            self._event = None
+
+    def handle_event(self, event):
+        self._state = event.data.get('value')
+        self.async_write_ha_state()
+
+    @property
+    def device_info(self) -> DeviceInfo:
+        """Return the device info."""
+        return DeviceInfo(
+            identifiers={
+                # Serial numbers are unique identifiers within a specific domain
+                (DOMAIN, self._eui)
+            },
+            name=self._eui,
+            manufacturer="Seeed Studio",
+            model="Watcher",
+            sw_version="1.0",
+        )
+
+    @property
+    def state(self):
+        return self._state
+
+
+class AlarmSensor(Entity):
+    def __init__(self, eui: str):
+        """Initialize the sensor."""
+        self._eui = eui
+        self._attr_unique_id = ("watcher_alarm_{eui}").format(
+            eui=eui,
+        )
+        self._event_type = ("{domain}_{id}").format(
+            domain=DOMAIN,
+            id=self._attr_unique_id
+        )
+        self._attr_name = type
+        self._state = 'unavailable'
+        self._event = None
+
+    async def async_added_to_hass(self) -> None:
+        """Run when this Entity has been added to HA."""
+        self._event = self.hass.bus.async_listen(
+            self._event_type, self.handle_event)
+
+    async def async_will_remove_from_hass(self) -> None:
+        """Entity being removed from hass."""
+        if self._event:
+            self._event()
+            self._event = None
+
+    def handle_event(self, event):
+        self._state = event.data.get('text')
+        self.async_write_ha_state()
+
+    @property
+    def device_info(self) -> DeviceInfo:
+        """Return the device info."""
+        return DeviceInfo(
+            identifiers={
+                # Serial numbers are unique identifiers within a specific domain
+                (DOMAIN, self._eui)
+            },
+            name="Alarm Sensor",
+            manufacturer="Seeed Studio",
+            model="Watcher",
+            sw_version="1.0",
+        )
+
+    @property
+    def state(self):
+        return self._state

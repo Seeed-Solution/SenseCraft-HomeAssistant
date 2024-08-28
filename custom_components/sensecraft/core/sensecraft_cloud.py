@@ -199,7 +199,7 @@ class SenseCraftCloud():
                     measurement_ids = channel.get('measurement_ids')
                     for measurementID in measurement_ids:
                         deviceInfo['measurementID'] = measurementID
-                        deviceInfoList.append(deviceInfo.copy())
+                        deviceInfoList.append(deviceInfo)
             return deviceInfoList
         except:
             raise []
