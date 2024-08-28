@@ -6,9 +6,9 @@ ENV_CHINA = "china"
 ENV_GLOBAL = "global"
 SUPPORTED_ENV = [ENV_CHINA, ENV_GLOBAL]
 JETSON_NAME = "Jetson"
-GROVE_WE_2_NAME = "grove_vision_ai_we2"
+GROVE_WE_2_NAME = "grove_vision_ai_v2"
 WATCHER = "Watcher"
-SUPPORTED_DEVICE = [JETSON_NAME, GROVE_WE_2_NAME, WATCHER]
+SUPPORTED_DEVICE = [WATCHER, GROVE_WE_2_NAME, JETSON_NAME, ]
 
 SELECTED_DEVICE = "selected_device"
 ACCOUNT_USERNAME = "username"
@@ -559,6 +559,11 @@ MEASUREMENT_DICT = {
         "Bluetooth Beacon MAC Address",
         " ",
         "mdi:bluetooth"
+    ],
+    "5003": [
+        "Event list",
+        " ",
+        "mdi:devices"
     ],
     "5100": [
         "Switch",

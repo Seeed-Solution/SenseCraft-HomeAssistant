@@ -53,15 +53,15 @@
         }
       },
       "local_grove_vision_ai": {
-        "title": "grove_vision_ai_we2",
-        "description": "Config grove_vision_ai_we2",
+        "title": "grove_vision_ai_v2",
+        "description": "Config grove_vision_ai_v2",
         "data": {
           "id": "Id"
         }
       },
       "local_watcher": {
         "title": "Watcher",
-        "description": "HTTP Server: `{host}`",
+        "description": "The Server Host is the same as Home Assistant's IP, and the Port is 8887.",
         "data": {
           "eui": "EUI"
         }

@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import logging
-import socket
 from typing import Any, Dict, Optional
 import voluptuous as vol
 from homeassistant.components import dhcp, zeroconf
@@ -101,8 +100,8 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 return await self.async_step_local()
 
         actions = {
-            'cloud': 'Add devices using SenseCraft Account (账号集成)',
-            'local': 'Add device using host/id (局域网集成)',
+            'cloud': 'Add devices using SenseCraft Account (Cloud)',
+            'local': 'Add device using host/id/eui (Local Network)',
         }
 
         return self.async_show_form(
@@ -192,7 +191,7 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
         fields: OrderedDict[Any, Any] = OrderedDict()
         fields[vol.Optional('device', default=user_input.get(
-            'device', JETSON_NAME))] = DEVICE_TYPE_SELECTOR
+            'device', WATCHER))] = DEVICE_TYPE_SELECTOR
 
         return self.async_show_form(
             step_id="local", data_schema=vol.Schema(fields), errors=errors
@@ -252,11 +251,11 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             user_input = {}
         else:
             id = user_input['id']
-            name = f"grove_vision_ai_we2_{id}"
+            name = f"grove_vision_ai_v2_{id}"
             device: dict[str, str] = {}
             device[DEVICE_NAME] = name
             device[DEVICE_ID] = name
-            device[MQTT_TOPIC] = f"sscma/v0/grove_vision_ai_we2_{id}"
+            device[MQTT_TOPIC] = f"sscma/v0/{id}"
             device[MQTT_BROKER] = ''
             device[MQTT_PORT] = ''
             device[DEVICE_TYPE] = SSCMA
@@ -282,11 +281,10 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             user_input = {}
         else:
             eui = user_input['eui']
-            device_name = f"Watcher_{eui}"
             device: dict[str, str] = {}
             device[DEVICE_ID] = eui
             self.context['device'] = device
-            await self.async_set_unique_id(device_name)
+            await self.async_set_unique_id(eui)
             self._abort_if_unique_id_configured()
             return await self.async_step_watcher_confirm()
 
@@ -294,11 +292,8 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         fields[vol.Required('eui', default=user_input.get(
             'eui', ''))] = TEXT_SELECTOR
 
-        hostname = socket.gethostname()
-        host_ip = socket.gethostbyname(hostname)
         return self.async_show_form(
             step_id="local_watcher",
-            description_placeholders={"host": f'http://{host_ip}:8887'},
             data_schema=vol.Schema(fields),
             errors=errors
         )
@@ -310,14 +305,13 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         errors: dict[str, str] = {}
         device = self.context['device']
         eui = device[DEVICE_ID]
-        device_name = f"Watcher_{eui}"
         if user_input is None:
             user_input = {}
         else:
             try:
                 local = WatcherLocal(self.hass, device)
                 config = local.to_config()
-                return self.async_create_entry(title=device_name, data={
+                return self.async_create_entry(title=eui, data={
                     CONFIG_DATA: config,
                     DATA_SOURCE: WATCHER
                 })
@@ -329,7 +323,7 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             step_id="watcher_confirm",
             data_schema=vol.Schema({}),
             errors=errors,
-            description_placeholders={"name": device_name}
+            description_placeholders={"name": eui}
         )
 
     async def async_step_zeroconf(

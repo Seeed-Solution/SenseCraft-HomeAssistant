@@ -180,7 +180,12 @@ class CloudSensor(Entity):
         self._state = 'unavailable'
         self._event = None
         self._measurementID = deviceInfo['measurementID']
-        measurementInfo = MEASUREMENT_DICT[self._measurementID]
+        measurementInfo = MEASUREMENT_DICT.get(self._measurementID)
+        if measurementInfo is None:
+            default_name = "Unknown Measurement"
+            default_unit = None
+            default_icon = "mdi:alert-circle-outline"
+            measurementInfo = (default_name, default_unit, default_icon)
         self._attr_name = measurementInfo[0]
         self._attr_unit_of_measurement = measurementInfo[1]
         self._attr_icon = measurementInfo[2]
