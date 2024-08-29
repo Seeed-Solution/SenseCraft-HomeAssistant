@@ -113,7 +113,6 @@ class SenseCraftLocal():
                 self.stream_list_callback(stream_name_list)
 
         elif name == "deviceInfo":
-            print('Received deviceInfo:',data)
             memoryUsed = data.get('memoryUsed')
             memoryTotal = data.get('memoryTotal')
             memoryUsed_type = ("{domain}_info_{mac}_{type}").format(

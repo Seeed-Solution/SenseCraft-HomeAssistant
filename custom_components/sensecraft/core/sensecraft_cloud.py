@@ -206,7 +206,6 @@ class SenseCraftCloud():
 
     def received_message(self, msg):
         data = msg.payload.decode()
-        print(f"Received cloud`{data}` from `{msg.topic}`")
         topic = msg.topic
         data = json.loads(data)
         value = data.get('value')

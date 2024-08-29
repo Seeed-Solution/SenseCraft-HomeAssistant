@@ -34,6 +34,7 @@ from .const import (
     SUPPORTED_DEVICE,
     BROKER,
     PORT,
+    CLIENT_ID,
     ACCOUNT_USERNAME,
     ACCOUNT_PASSWORD,
     MQTT_BROKER,
@@ -48,7 +49,6 @@ from .const import (
     DEVICE_ID,
     DEVICE_TYPE,
     SENSECRAFT_CLOUD,
-    SENSECRAFT_LOCAL,
     CONFIG_DATA,
     DATA_SOURCE,
     CLOUD,
@@ -254,10 +254,10 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             name = f"grove_vision_ai_v2_{id}"
             device: dict[str, str] = {}
             device[DEVICE_NAME] = name
-            device[DEVICE_ID] = name
-            device[MQTT_TOPIC] = f"sscma/v0/{id}"
+            device[DEVICE_ID] = id
             device[MQTT_BROKER] = ''
             device[MQTT_PORT] = ''
+            device[CLIENT_ID] = name
             device[DEVICE_TYPE] = SSCMA
             self.context['device'] = device
             await self.async_set_unique_id(name)
@@ -420,13 +420,22 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         device_type = device[DEVICE_TYPE]
         mqtt_broker = device[MQTT_BROKER]
         mqtt_port = device[MQTT_PORT]
+        mqtt_topic = device.get(MQTT_TOPIC)
+        has_mqtt_topic = bool(mqtt_topic)
+        client_id = device.get(CLIENT_ID)
+
         if user_input is None:
             user_input = {}
         else:
             try:
+                client_id = user_input[CLIENT_ID]
+                if not has_mqtt_topic:
+                    device[MQTT_TOPIC] = f"sscma/v0/{client_id}"
                 local = SScmaLocal(self.hass, device)
                 local.mqttBroker = user_input[BROKER]
                 local.mqttPort = user_input[PORT]
+                if not has_mqtt_topic:
+                    local.clientId = client_id
                 local.mqttUsername = user_input[ACCOUNT_USERNAME]
                 local.mqttPassword = user_input[ACCOUNT_PASSWORD]
 
@@ -447,6 +456,9 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             BROKER, mqtt_broker))] = TEXT_SELECTOR
         fields[vol.Required(PORT, default=user_input.get(
             PORT, mqtt_port))] = TEXT_SELECTOR
+        if not has_mqtt_topic:
+            fields[vol.Required(CLIENT_ID, default=user_input.get(
+                CLIENT_ID, client_id))] = TEXT_SELECTOR
         fields[vol.Optional(ACCOUNT_USERNAME, default=user_input.get(
             ACCOUNT_USERNAME, ''))] = TEXT_SELECTOR
         fields[vol.Optional(ACCOUNT_PASSWORD, default=user_input.get(

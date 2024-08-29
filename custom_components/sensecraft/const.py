@@ -37,6 +37,7 @@ MQTT_PORT = "mqtt_port"
 
 BROKER = "broker"
 PORT = "port"
+CLIENT_ID = "client_id"
 MQTT_TOPIC = "mqtt_topic"
 
 MEASUREMENT_DICT = {

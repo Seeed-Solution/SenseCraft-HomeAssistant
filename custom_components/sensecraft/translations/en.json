@@ -76,6 +76,7 @@
         "data": {
           "broker": "Broker",
           "port": "Port",
+          "client_id": "ClientId",
           "username": "Username",
           "password": "Password"
         }

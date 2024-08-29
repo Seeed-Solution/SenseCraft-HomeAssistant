@@ -18,6 +18,7 @@ class SScmaLocal():
 
         self.mqttBroker = config.get('mqtt_broker')
         self.mqttPort = config.get('mqtt_port')
+        self.clientId = config.get('client_id')
         self.mqttUsername = config.get('mqtt_username')
         self.mqttPassword = config.get('mqtt_password')
         self.mqttTopic = config.get('mqtt_topic')
@@ -42,6 +43,7 @@ class SScmaLocal():
             'device_id': self.deviceId,
             'mqtt_broker': self.mqttBroker,
             'mqtt_port': self.mqttPort,
+            'client_id': self.clientId,
             'mqtt_username': self.mqttUsername,
             'mqtt_password': self.mqttPassword,
             'mqtt_topic': self.mqttTopic,
@@ -59,7 +61,8 @@ class SScmaLocal():
                 self.mqttBroker,
                 int(self.mqttPort),
                 self.mqttUsername,
-                self.mqttPassword
+                self.mqttPassword,
+                self.clientId
             )
             self.sscmaClient = Client(
                 lambda msg: mqtt.publish(self.tx_topic, msg)
