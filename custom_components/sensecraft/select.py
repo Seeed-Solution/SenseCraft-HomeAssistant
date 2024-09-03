@@ -1,5 +1,3 @@
-"""Select platform for Advantage Air integration."""
-
 from homeassistant.components.select import SelectEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
@@ -47,7 +45,7 @@ class JetsonStreamSelect(SelectEntity):
             data = self.hass.data[DOMAIN][self._entry_id]
             local: SenseCraftLocal = data[SENSECRAFT_LOCAL]
             local.updateStream(streams[0])
-        self.async_write_ha_state()
+        self.hass.async_add_job(self.async_write_ha_state)
             
 
     @property
@@ -80,7 +78,7 @@ class JetsonStreamSelect(SelectEntity):
         data = self.hass.data[DOMAIN][self._entry_id]
         local: SenseCraftLocal = data[SENSECRAFT_LOCAL]
         local.updateStream(option)
-        self.async_write_ha_state()
+        self.hass.async_add_job(self.async_write_ha_state)
 
     def should_poll():
         return True

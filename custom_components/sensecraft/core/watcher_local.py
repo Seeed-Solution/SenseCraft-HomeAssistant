@@ -1,4 +1,7 @@
 import logging
+import os
+from base64 import b64decode
+from datetime import datetime
 from aiohttp import web
 from homeassistant.core import HomeAssistant
 from ..const import (
@@ -34,6 +37,11 @@ class WebAppSingleton:
         await runner.setup()
         site = web.TCPSite(runner, '0.0.0.0', 8887)
         await site.start()
+    
+    def save_image_to_file(self, image_base64, filename):
+        image_data = b64decode(image_base64)
+        with open(filename, 'wb') as file:
+            file.write(image_data)
 
     async def handle_request(self, request):
         """Handle incoming HTTP POST request."""
@@ -47,7 +55,6 @@ class WebAppSingleton:
 
             text = events.get('text')
             image = events.get('img')
-
             if text is not None:
                 _event_type = ("{domain}_watcher_alarm_{eui}").format(
                     domain=DOMAIN,
@@ -60,7 +67,14 @@ class WebAppSingleton:
                     domain=DOMAIN,
                     eui=eui
                 )
-                self.hass.bus.fire(_event_type, {"image": image})
+                timestamp = datetime.now().strftime('%Y%m%d_%H%M%S_%f')
+                filename = self.hass.config.path(f'images/watcher_{timestamp}.png')
+
+                # 确保目录存在
+                os.makedirs(os.path.dirname(filename), exist_ok=True)
+
+                self.save_image_to_file(image, filename)
+                self.hass.bus.fire(_event_type, {"image_path": filename})
 
             temperature = 'unavailable'
             humidity = 'unavailable'

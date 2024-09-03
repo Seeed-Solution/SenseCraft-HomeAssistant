@@ -109,7 +109,7 @@ class Confidence(ConfigNumber):
         local: SScmaLocal = data[SSCMA_LOCAL]
         if local is not None:
             local.device.tscore = value
-            self.async_write_ha_state()
+            self.hass.async_add_job(self.async_write_ha_state)
 
 
 class IOU(ConfigNumber):
@@ -135,4 +135,4 @@ class IOU(ConfigNumber):
         local: SScmaLocal = data[SSCMA_LOCAL]
         if local is not None:
             local.device.tiou = value
-            self.async_write_ha_state()
+            self.hass.async_add_job(self.async_write_ha_state)

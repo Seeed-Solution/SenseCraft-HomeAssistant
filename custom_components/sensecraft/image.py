@@ -1,5 +1,5 @@
 import logging
-from base64 import b64decode
+import os
 from homeassistant import config_entries
 from homeassistant.util import dt as dt_util
 from homeassistant.core import HomeAssistant
@@ -53,7 +53,7 @@ class WatcherImage(ImageEntity):
         self._attr_name = "Alarm Image"
         self._attr_image_last_updated = None
         self._event = None
-        self._image_base64 = None
+        self._image_data = None
 
     async def async_added_to_hass(self) -> None:
         """Run when this Entity has been added to HA."""
@@ -67,9 +67,15 @@ class WatcherImage(ImageEntity):
             self._event = None
 
     def handle_event(self, event):
-        self._image_base64 = event.data.get('image')
+        image_path = event.data.get('image_path')
         self._attr_image_last_updated = dt_util.utcnow()
-        self.async_write_ha_state()
+        if image_path and os.path.exists(image_path):
+            with open(image_path, 'rb') as file:
+                self._image_data = file.read()
+            image_size = len(self._image_data)
+        else:
+            self._image_data = None
+        self.hass.async_add_job(self.async_write_ha_state)
 
     @property
     def device_info(self) -> DeviceInfo:
@@ -86,6 +92,4 @@ class WatcherImage(ImageEntity):
 
     def image(self) -> bytes | None:
         """Return bytes of image."""
-        if self._image_base64:
-            return b64decode(self._image_base64)
-        return None
+        return self._image_data

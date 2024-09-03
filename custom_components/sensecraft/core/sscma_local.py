@@ -71,17 +71,22 @@ class SScmaLocal():
                 self.sscmaClient
             )
             if mqtt.connect():
+                print('setMqtt connect success')
                 self.device.on_connect = self.on_device_connect
                 self.device.loop_start()
+                print('loop_start')
                 self.mqttClient = mqtt
                 self.mqttClient.subscribe(self.rx_topic)
                 self.mqttClient.message_received = self.on_message
+                print('on_message')
                 # 等待连接结果
                 if self.connectEvent.wait(timeout=30):
+                    print('connectEvent wait success')
                     self.device.on_monitor = self.on_monitor
                     self.connected = True
                     return True
                 else:
+                    print('connectEvent wait timeout')
                     self.connected = False
                     return False
         except Exception as e:
