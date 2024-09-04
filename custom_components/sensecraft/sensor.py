@@ -160,17 +160,11 @@ async def async_setup_entry(
 class CloudSensor(Entity):
     def __init__(self, deviceInfo: dict):
         """Initialize the sensor."""
-        self._attr_unique_id = ("{eui}_{channel_index}_{measurementID}").format(
-            eui=deviceInfo['eui'],
-            channel_index=deviceInfo['channelIndex'],
-            measurementID=deviceInfo['measurementID']
-        )
-        self._event_type = ("{domain}_cloud_{id}").format(
-            domain=DOMAIN,
-            id=self._attr_unique_id
-        )
-        self._uniform_type = deviceInfo['uniform_type']
         self._eui = deviceInfo['eui']
+        self._attr_unique_id = f"{self._eui}_{deviceInfo['channelIndex']}_{deviceInfo['measurementID']}"
+        self._event_type = f"{DOMAIN}_cloud_{self._attr_unique_id}"
+        self._uniform_type = deviceInfo['uniform_type']
+        
         deviceName = deviceInfo['name']
         if deviceName is None or len(deviceName) == 0:
             self._device_name = self._eui
@@ -235,15 +229,9 @@ class CloudSensor(Entity):
 class JetsonDeviceInfo(Entity):
     def __init__(self, deviceId: str, name: str, type: str):
         """Initialize the sensor."""
-        self._attr_unique_id = ("{id}_{type}").format(
-            id=deviceId,
-            type=type,
-        )
+        self._attr_unique_id = f"{deviceId}_{type}"
         self._deviceId = deviceId
-        self._event_type = ("{domain}_info_{id}").format(
-            domain=DOMAIN,
-            id=self._attr_unique_id
-        )
+        self._event_type = f"{DOMAIN}_info_{self._attr_unique_id}"
         self._device_name = name
         self._attr_name = type
         self._state = 'unavailable'
@@ -289,15 +277,9 @@ class JetsonDeviceInfo(Entity):
 class InferenceResult(Entity):
     def __init__(self, deviceId: str, deviceName: str, object: str):
         """Initialize the sensor."""
-        self._attr_unique_id = ("{id}_{object}").format(
-            id=deviceId,
-            object=object.lower(),
-        )
+        self._attr_unique_id = f"{deviceId}_{object.lower()}"
         self._deviceId = deviceId
-        self._event_type = ("{domain}_inference_{id}").format(
-            domain=DOMAIN,
-            id=self._attr_unique_id
-        )
+        self._event_type = f"{DOMAIN}_inference_{self._attr_unique_id}"
         self._device_name = deviceName
         self._attr_name = object
         self._state = 'unavailable'
@@ -342,14 +324,8 @@ class WatcherSensor(Entity):
     def __init__(self, eui: str, type: str):
         """Initialize the sensor."""
         self._eui = eui
-        self._attr_unique_id = ("watcher_{type}_{eui}").format(
-            type=type,
-            eui=eui,
-        )
-        self._event_type = ("{domain}_{id}").format(
-            domain=DOMAIN,
-            id=self._attr_unique_id
-        )
+        self._attr_unique_id = f"watcher_{type}_{eui}"
+        self._event_type = f"{DOMAIN}_{self._attr_unique_id}"
         self._attr_name = type
         self._state = 'unavailable'
         self._event = None
@@ -392,13 +368,8 @@ class AlarmSensor(Entity):
     def __init__(self, eui: str):
         """Initialize the sensor."""
         self._eui = eui
-        self._attr_unique_id = ("watcher_alarm_{eui}").format(
-            eui=eui,
-        )
-        self._event_type = ("{domain}_{id}").format(
-            domain=DOMAIN,
-            id=self._attr_unique_id
-        )
+        self._attr_unique_id = f"watcher_alarm_{eui}"
+        self._event_type = f"{DOMAIN}_{self._attr_unique_id}"
         self._attr_name = type
         self._state = 'unavailable'
         self._event = None

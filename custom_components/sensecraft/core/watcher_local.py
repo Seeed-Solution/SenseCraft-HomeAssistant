@@ -56,25 +56,22 @@ class WebAppSingleton:
             text = events.get('text')
             image = events.get('img')
             if text is not None:
-                _event_type = ("{domain}_watcher_alarm_{eui}").format(
-                    domain=DOMAIN,
-                    eui=eui
-                )
+                _event_type = f"{DOMAIN}_watcher_alarm_{eui}"
                 self.hass.bus.fire(_event_type, {"text": text})
 
             if image is not None:
-                _event_type = ("{domain}_watcher_image_{eui}").format(
-                    domain=DOMAIN,
-                    eui=eui
-                )
+                _event_type = f"{DOMAIN}_watcher_image_{eui}"
                 timestamp = datetime.now().strftime('%Y%m%d_%H%M%S_%f')
-                filename = self.hass.config.path(f'images/watcher_{timestamp}.png')
+                filename = self.hass.config.path(f'www/images/watcher_{timestamp}.png')
 
                 # 确保目录存在
                 os.makedirs(os.path.dirname(filename), exist_ok=True)
 
                 self.save_image_to_file(image, filename)
-                self.hass.bus.fire(_event_type, {"image_path": filename})
+                self.hass.bus.fire(_event_type, {
+                    "image_path": filename,  # 使用 /local 路径
+                    "alarm_text": text if text is not None else ""
+                })
 
             temperature = 'unavailable'
             humidity = 'unavailable'
@@ -87,19 +84,9 @@ class WebAppSingleton:
                     temperature = sensor.get('temperature', 'unavailable')
                     humidity = sensor.get('humidity', 'unavailable')
                     co2 = sensor.get('CO2', 'unavailable')
-
-            self.hass.bus.fire(("{domain}_watcher_temperature_{eui}").format(
-                domain=DOMAIN,
-                eui=eui,
-            ), {"value": temperature})
-            self.hass.bus.fire(("{domain}_watcher_humidity_{eui}").format(
-                domain=DOMAIN,
-                eui=eui,
-            ), {"value": humidity})
-            self.hass.bus.fire(("{domain}_watcher_co2_{eui}").format(
-                domain=DOMAIN,
-                eui=eui,
-            ), {"value": co2})
+            self.hass.bus.fire(f"{DOMAIN}_watcher_temperature_{eui}", {"value": temperature})
+            self.hass.bus.fire(f"{DOMAIN}_watcher_humidity_{eui}", {"value": humidity})
+            self.hass.bus.fire(f"{DOMAIN}_watcher_co2_{eui}", {"value": co2})
 
             return web.json_response({'code': 200, 'msg': "", 'data': {}})
 

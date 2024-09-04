@@ -220,28 +220,15 @@ class SenseCraftCloud():
         if eui not in self.selectedDeviceEuis:
             return
 
-        entity_id = ("{eui}_{channel_index}_{measurementID}").format(
-            eui=eui,
-            channel_index=channelIndex,
-            measurementID=measurementID
-        )
-        event_type = ("{domain}_cloud_{id}").format(
-            domain=DOMAIN,
-            id=entity_id
-        )
+        entity_id = f"{eui}_{channelIndex}_{measurementID}"
+        event_type = f"{DOMAIN}_cloud_{entity_id}"
         self.hass.bus.fire(event_type, {"value": value})
 
     async def mqttConnect(self):
         try:
-            client_id = ("org-{orgID}-{random}").format(
-                orgID=self.orgID, random=random.randint(0, 1000)
-            )
-            username = ("org-{orgID}").format(
-                orgID=self.orgID
-            )
-            topic = ("/device_sensor_data/{orgID}/#").format(
-                orgID=self.orgID
-            )
+            client_id = f"org-{self.orgID}-{random.randint(0, 1000)}"
+            username = f"org-{self.orgID}"
+            topic = f"/device_sensor_data/{self.orgID}/#"
             self.mqttClient = MQTTClient(
                 self.broker, 1883, username, self.accesskey, client_id)
 

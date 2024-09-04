@@ -41,19 +41,15 @@ class WatcherImage(ImageEntity):
     ) -> None:
         """Initialize the camera entity."""
         self.hass = hass
+        
         ImageEntity.__init__(self, hass)
-        self._attr_unique_id = ("watcher_image_{eui}").format(
-            eui=eui,
-        )
+        self._attr_unique_id = f"watcher_image_{eui}"
         self._eui = eui
-        self._event_type = ("{domain}_{id}").format(
-            domain=DOMAIN,
-            id=self._attr_unique_id
-        )
-        self._attr_name = "Alarm Image"
+        self._event_type = f"{DOMAIN}_{self._attr_unique_id}"
+        self._attr_name = "Alarm Triggered"
         self._attr_image_last_updated = None
         self._event = None
-        self._image_data = None
+        self._image_path = None
 
     async def async_added_to_hass(self) -> None:
         """Run when this Entity has been added to HA."""
@@ -68,13 +64,19 @@ class WatcherImage(ImageEntity):
 
     def handle_event(self, event):
         image_path = event.data.get('image_path')
-        self._attr_image_last_updated = dt_util.utcnow()
+        alarm_text = event.data.get('alarm_text')
         if image_path and os.path.exists(image_path):
-            with open(image_path, 'rb') as file:
-                self._image_data = file.read()
-            image_size = len(self._image_data)
+            self._image_path = image_path
+            image_url = f"http://<your-home-assistant-url>/local/images/{os.path.basename(image_path)}"
+            self.hass.bus.fire('logbook_entry', {
+                'name': self._attr_name,
+                'message': f'"{alarm_text}" view image in: {image_url}',
+                'entity_id': self.entity_id
+            })
         else:
-            self._image_data = None
+            self._image_path = None
+
+        self._attr_image_last_updated = dt_util.utcnow() 
         self.hass.async_add_job(self.async_write_ha_state)
 
     @property
@@ -89,7 +91,11 @@ class WatcherImage(ImageEntity):
             model="Watcher",
             sw_version="1.0",
         )
-
+    
     def image(self) -> bytes | None:
         """Return bytes of image."""
-        return self._image_data
+        if self._image_path and os.path.exists(self._image_path):
+            with open(self._image_path, 'rb') as file:
+                return file.read()
+        return None
+    

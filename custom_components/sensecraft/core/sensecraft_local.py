@@ -102,11 +102,7 @@ class SenseCraftLocal():
 
                         for key in info:
                             if key !='timestamp':
-                                _event_type = ("{domain}_inference_{mac}_{name}").format(
-                                    domain=DOMAIN,
-                                    mac=mac,
-                                    name=key
-                                )
+                                _event_type = f"{DOMAIN}_inference_{mac}_{key}"
                                 self.hass.bus.fire(_event_type, {"value": info[key]})
 
             if self.stream_list_callback is not None:
@@ -115,11 +111,7 @@ class SenseCraftLocal():
         elif name == "deviceInfo":
             memoryUsed = data.get('memoryUsed')
             memoryTotal = data.get('memoryTotal')
-            memoryUsed_type = ("{domain}_info_{mac}_{type}").format(
-                    domain=DOMAIN,
-                    mac=mac,
-                    type='memoryUsed'
-                )
+            memoryUsed_type = f"{DOMAIN}_info_{mac}_memoryUsed"
             if memoryUsed>0 and memoryTotal>0:
                 value = memoryUsed/memoryTotal
                 self.hass.bus.fire(memoryUsed_type, {"value": round(value,2)})
@@ -128,11 +120,7 @@ class SenseCraftLocal():
             
             sdUsed = data.get('sdUsed')
             sdTotal = data.get('sdTotal')
-            sdUsed_type = ("{domain}_info_{mac}_{type}").format(
-                    domain=DOMAIN,
-                    mac=mac,
-                    type='sdUsed'
-                )
+            sdUsed_type = f"{DOMAIN}_info_{mac}_sdUsed"
             if sdUsed>0 and sdTotal>0:
                 value = sdUsed/sdTotal
                 self.hass.bus.fire(sdUsed_type, {"value": round(value,2)})
@@ -141,11 +129,7 @@ class SenseCraftLocal():
             
             flashUsed = data.get('flashUsed')
             flashTotal = data.get('flashTotal')
-            flashUsed_type = ("{domain}_info_{mac}_{type}").format(
-                    domain=DOMAIN,
-                    mac=mac,
-                    type='flashUsed'
-                )
+            flashUsed_type = f"{DOMAIN}_info_{mac}_flashUsed"
             if flashUsed>0 and flashTotal>0:
                 value = flashUsed/flashTotal
                 self.hass.bus.fire(flashUsed_type, {"value": round(value,2)})
@@ -153,19 +137,11 @@ class SenseCraftLocal():
                 self.hass.bus.fire(flashUsed_type, {"value": 0})
 
             cpuTemperature = data.get('cpuTemperature')
-            cpuTemperature_type = ("{domain}_info_{mac}_{type}").format(
-                    domain=DOMAIN,
-                    mac=mac,
-                    type='cpuTemperature'
-                )
+            cpuTemperature_type = f"{DOMAIN}_info_{mac}_cpuTemperature"
             self.hass.bus.fire(cpuTemperature_type, {"value": cpuTemperature})
             
             cpuUsed = data.get('cpuUsed')
-            cpuUsed_type = ("{domain}_info_{mac}_{type}").format(
-                    domain=DOMAIN,
-                    mac=mac,
-                    type='cpuUsed'
-                )
+            cpuUsed_type = f"{DOMAIN}_info_{mac}_cpuUsed"
             self.hass.bus.fire(cpuUsed_type, {"value": round(float(cpuUsed),2)})
 
     def on_monitor_stream(self, callback):
@@ -184,11 +160,7 @@ class SenseCraftLocal():
         self.current_stream = stream
     
     def _request(self,cmd):
-        url = ("http://{host}:{port}/data?cmd={cmd}").format(
-            host = self.deviceHost,
-            port = self.devicePort,
-            cmd = cmd
-        )
+        url = f"http://{self.deviceHost}:{self.devicePort}/data?cmd={cmd}"
         response = get(url)
         resp = json.loads(response.text)
         data = resp.get('data')

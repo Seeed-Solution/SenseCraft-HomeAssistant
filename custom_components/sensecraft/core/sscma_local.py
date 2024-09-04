@@ -147,11 +147,7 @@ class SScmaLocal():
         for index in counts:
             if(len(self.classes) > index):
                 name = self.classes[index]
-                _event_type = ("{domain}_inference_{deviceId}_{name}").format(
-                    domain=DOMAIN,
-                    deviceId=self.deviceId,
-                    name=name.lower()
-                )
+                _event_type = f"{DOMAIN}_inference_{self.deviceId}_{name.lower()}"
                 self.hass.bus.fire(_event_type, {"value": counts[index]})
         
         if image is not None:
