@@ -67,10 +67,10 @@ class WatcherImage(ImageEntity):
         alarm_text = event.data.get('alarm_text')
         if image_path and os.path.exists(image_path):
             self._image_path = image_path
-            image_url = f"http://<your-home-assistant-url>/local/images/{os.path.basename(image_path)}"
+            image_url = f"http://<home-assistant-url>/local/images/{os.path.basename(image_path)}"
             self.hass.bus.fire('logbook_entry', {
                 'name': self._attr_name,
-                'message': f'"{alarm_text}" view image in: {image_url}',
+                'message': f'"{alarm_text}"  View image: {image_url}',
                 'entity_id': self.entity_id
             })
         else:
