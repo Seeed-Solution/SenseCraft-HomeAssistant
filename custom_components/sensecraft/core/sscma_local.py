@@ -62,7 +62,7 @@ class SScmaLocal():
                 int(self.mqttPort),
                 self.mqttUsername,
                 self.mqttPassword,
-                self.clientId
+                # self.clientId
             )
             self.sscmaClient = Client(
                 lambda msg: mqtt.publish(self.tx_topic, msg)
