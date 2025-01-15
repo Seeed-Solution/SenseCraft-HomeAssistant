@@ -11,7 +11,7 @@ from .core.sscma_local import SScmaLocal
 from .core.watcher_local import WatcherLocal
 from homeassistant.const import (
     PERCENTAGE,
-    TEMP_CELSIUS,
+    UnitOfTemperature,
 )
 from homeassistant.helpers.device_registry import (
     DeviceInfo,
@@ -108,7 +108,7 @@ async def async_setup_entry(
         entities.append(cpuUsed)
 
         cpuTemperature = JetsonDeviceInfo(mac, deviceName, 'cpuTemperature')
-        cpuTemperature._attr_unit_of_measurement = TEMP_CELSIUS
+        cpuTemperature._attr_unit_of_measurement = UnitOfTemperature.CELSIUS
         entities.append(cpuTemperature)
 
         async_add_entities(entities, update_before_add=False)
@@ -131,7 +131,7 @@ async def async_setup_entry(
 
         temperature = WatcherSensor(eui, 'temperature')
         temperature._attr_name = "Temperature"
-        temperature._attr_unit_of_measurement = TEMP_CELSIUS
+        temperature._attr_unit_of_measurement = UnitOfTemperature.CELSIUS
         temperature._attr_icon = "mdi:temperature-celsius"
 
         entities.append(temperature)
