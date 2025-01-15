@@ -8,7 +8,7 @@ class MQTTClient:
         self.port = port
         self.username = '' if username is None else username
         self.password = '' if password is None else password
-        self.client = mqtt.Client()
+        self.client = mqtt.Client(client_id)
         self.connectEvent = threading.Event()
         self.message_received = None
 
