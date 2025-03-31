@@ -1,6 +1,6 @@
 {
     "name": "SenseCraft",
-    "content_in_root": true,
+    "content_in_root": false,
     "zip_release": true,
     "filename": "sensecraft.zip",
     "render_readme": true
