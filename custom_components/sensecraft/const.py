@@ -5,21 +5,20 @@ DOMAIN = "sensecraft"
 ENV_CHINA = "china"
 ENV_GLOBAL = "global"
 SUPPORTED_ENV = [ENV_CHINA, ENV_GLOBAL]
-JETSON_NAME = "Jetson"
-GROVE_WE_2_NAME = "grove_vision_ai_v2"
+JETSON = "Jetson"
+GROVE_VISION_AI_V2 = "grove_vision_ai_v2"
 WATCHER = "Watcher"
-SUPPORTED_DEVICE = [WATCHER, GROVE_WE_2_NAME, JETSON_NAME, ]
+RECAMERA_GIMBAL = "reCamera gimbal"
+SUPPORTED_DEVICE = [WATCHER, GROVE_VISION_AI_V2, JETSON]
+CLOUD = "cloud"
+ACCOUNT_ENV = "env"
+
+DATA_SOURCE = "data_source"
 
 SELECTED_DEVICE = "selected_device"
 ACCOUNT_USERNAME = "username"
 ACCOUNT_PASSWORD = "password"
 
-DATA_SOURCE = "data_source"
-SENSECRAFT = "sensecraft"
-SSCMA = "sscma"
-CLOUD = "cloud"
-
-ACCOUNT_ENV = "env"
 
 DEVICE_NAME = "device_name"
 DEVICE_HOST = "device_host"
@@ -27,10 +26,6 @@ DEVICE_PORT = "device_port"
 DEVICE_MAC = "device_mac"
 DEVICE_ID = "device_id"
 DEVICE_TYPE = "device_type"
-SENSECRAFT_CLOUD = "sensecraft_cloud"
-SENSECRAFT_LOCAL = "sensecraft_local"
-SSCMA_LOCAL = "sscma_local"
-WATCHER_LOCAL = "watcher_local"
 CONFIG_DATA = "config_data"
 MQTT_BROKER = "mqtt_broker"
 MQTT_PORT = "mqtt_port"

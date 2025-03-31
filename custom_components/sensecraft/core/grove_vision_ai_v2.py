@@ -9,7 +9,7 @@ from ..const import (
 )
 _LOGGER = logging.getLogger(__name__)
 
-class SScmaLocal():
+class GroveVisionAiV2():
 
     def __init__(self, hass: HomeAssistant, config: dict):
         self.hass = hass
@@ -52,7 +52,7 @@ class SScmaLocal():
     @staticmethod
     def from_config(hass: HomeAssistant, config: dict):
         # 从字典创建对象
-        local = SScmaLocal(hass, config)
+        local = GroveVisionAiV2(hass, config)
         return local
 
     def setMqtt(self):
@@ -71,22 +71,17 @@ class SScmaLocal():
                 self.sscmaClient
             )
             if mqtt.connect():
-                print('setMqtt connect success')
                 self.device.on_connect = self.on_device_connect
                 self.device.loop_start()
-                print('loop_start')
                 self.mqttClient = mqtt
                 self.mqttClient.subscribe(self.rx_topic)
                 self.mqttClient.message_received = self.on_message
-                print('on_message')
                 # 等待连接结果
                 if self.connectEvent.wait(timeout=30):
-                    print('connectEvent wait success')
                     self.device.on_monitor = self.on_monitor
                     self.connected = True
                     return True
                 else:
-                    print('connectEvent wait timeout')
                     self.connected = False
                     return False
         except Exception as e:

@@ -59,6 +59,13 @@
           "id": "Id"
         }
       },
+      "local_recamera_gimbal": {
+        "title": "recamera_gimbal",
+        "description": "Config recamera_gimbal",
+        "data": {
+          "sn": "SN"
+        }
+      },
       "local_watcher": {
         "title": "Watcher",
         "description": "The Server Host is the same as Home Assistant's IP, and the Port is 8887.",
@@ -77,6 +84,16 @@
           "broker": "Broker",
           "port": "Port",
           "client_id": "ClientId",
+          "username": "Username",
+          "password": "Password"
+        }
+      },
+      "recamera_gimbal_mqtt": {
+        "title": "Setup MQTT Server",
+        "description": "Do you want to add `{name}` to Home Assistant?",
+        "data": {
+          "broker": "Broker",
+          "port": "Port",
           "username": "Username",
           "password": "Password"
         }

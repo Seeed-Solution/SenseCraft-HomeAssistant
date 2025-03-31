@@ -1,34 +1,40 @@
 from homeassistant.core import HomeAssistant
 from homeassistant import config_entries
 from homeassistant.const import Platform
+from homeassistant.config_entries import ConfigEntry
+from homeassistant.helpers.typing import ConfigType
 
 # The domain of your component. Should be equal to the name of your component.
 from .const import (
     DOMAIN,
-    SENSECRAFT_CLOUD,
-    SENSECRAFT_LOCAL,
-    SSCMA_LOCAL,
-    WATCHER_LOCAL,
+    CLOUD,
+    JETSON,
     CONFIG_DATA,
     DATA_SOURCE,
-    CLOUD,
-    SENSECRAFT,
-    SSCMA,
-    WATCHER
+    GROVE_VISION_AI_V2,
+    WATCHER,
+    RECAMERA_GIMBAL,
 )
 
 # from .mqtt_assistant import MQTTAssistant
-from .core.sensecraft_cloud import SenseCraftCloud
-from .core.sensecraft_local import SenseCraftLocal
-from .core.sscma_local import SScmaLocal
-from .core.watcher_local import WatcherLocal
+from .core.cloud import Cloud
+from .core.jetson import Jetson
+from .core.grove_vision_ai_v2 import GroveVisionAiV2
+from .core.watcher import Watcher
+from .core.recamera import ReCamera
 
 PLATFORMS = [Platform.CAMERA, Platform.SENSOR, Platform.NUMBER,
-             Platform.SELECT, Platform.IMAGE]
+             Platform.SELECT, Platform.IMAGE, Platform.BUTTON, Platform.SWITCH]
+
+
+async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
+    """Set up the Sensecraft component."""
+    hass.data.setdefault(DOMAIN, {})
+    return True
 
 
 async def async_setup_entry(
-    hass: HomeAssistant, entry: config_entries.ConfigEntry
+    hass: HomeAssistant, entry: ConfigEntry
 ) -> bool:
     """Set up platform from a ConfigEntry."""
     hass.data.setdefault(DOMAIN, {})
@@ -36,27 +42,32 @@ async def async_setup_entry(
     if entry.options:
         data.update(entry.options)
         entry.data = data
-    # # Forward the setup to the sensor platform.
+    # Forward the setup to the sensor platform.
     data_source = data.get(DATA_SOURCE)
     entry.async_on_unload(entry.add_update_listener(update_listener))
     if data_source == CLOUD:
-        cloud = SenseCraftCloud.from_config(hass, data.get(CONFIG_DATA))
-        data[SENSECRAFT_CLOUD] = cloud
+        cloud = Cloud.from_config(hass, data.get(CONFIG_DATA))
+        data[CLOUD] = cloud
 
-    elif data_source == SENSECRAFT:
-        senseCraftLocal = SenseCraftLocal.from_config(
+    elif data_source == JETSON:
+        jetson = Jetson.from_config(
             hass, data.get(CONFIG_DATA))
-        senseCraftLocal.setMqtt()
-        data[SENSECRAFT_LOCAL] = senseCraftLocal
+        jetson.setMqtt()
+        data[JETSON] = jetson
 
-    elif data_source == SSCMA:
-        sscmaLocal = SScmaLocal.from_config(hass, data.get(CONFIG_DATA))
-        sscmaLocal.setMqtt()
-        data[SSCMA_LOCAL] = sscmaLocal
+    elif data_source == GROVE_VISION_AI_V2:
+        groveVisionAiV2 = GroveVisionAiV2.from_config(hass, data.get(CONFIG_DATA))
+        groveVisionAiV2.setMqtt()
+        data[GROVE_VISION_AI_V2] = groveVisionAiV2
 
     elif data_source == WATCHER:
-        watcherLocal = WatcherLocal.from_config(hass, data.get(CONFIG_DATA))
-        data[WATCHER_LOCAL] = watcherLocal
+        watcher = Watcher.from_config(hass, data.get(CONFIG_DATA))
+        data[WATCHER] = watcher
+
+    elif data_source == RECAMERA_GIMBAL:
+        recameraLocal = ReCamera.from_config(hass, data.get(CONFIG_DATA))
+        recameraLocal.setMqtt()
+        data[RECAMERA_GIMBAL] = recameraLocal
 
     hass.data[DOMAIN][entry.entry_id] = data
 
@@ -65,20 +76,23 @@ async def async_setup_entry(
 
 
 async def async_unload_entry(
-    hass: HomeAssistant, entry: config_entries.ConfigEntry
+    hass: HomeAssistant, entry: ConfigEntry
 ) -> bool:
     """Unload a config entry."""
     data = hass.data[DOMAIN][entry.entry_id]
     data_source = data.get(DATA_SOURCE)
     if data_source == CLOUD:
-        cloud: SenseCraftCloud = data[SENSECRAFT_CLOUD]
+        cloud: Cloud = data[CLOUD]
         cloud.stop()
-    elif data_source == SENSECRAFT:
-        senseCraftLocal: SenseCraftLocal = data[SENSECRAFT_LOCAL]
-        senseCraftLocal.stop()
-    elif data_source == SSCMA:
-        sscmaLocal: SScmaLocal = data[SSCMA_LOCAL]
-        sscmaLocal.stop()
+    elif data_source == JETSON:
+        jetson: Jetson = data[JETSON]
+        jetson.stop()
+    elif data_source == GROVE_VISION_AI_V2:
+        groveVisionAiV2: GroveVisionAiV2 = data[GROVE_VISION_AI_V2]
+        groveVisionAiV2.stop()
+    elif data_source == RECAMERA_GIMBAL:
+        recameraLocal: ReCamera = data[RECAMERA_GIMBAL]
+        recameraLocal.stop()
 
     unload_ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
     if unload_ok:

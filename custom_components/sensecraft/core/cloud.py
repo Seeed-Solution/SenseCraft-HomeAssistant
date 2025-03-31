@@ -32,7 +32,7 @@ ENV_URL = {
 _LOGGER = logging.getLogger(__name__)
 
 
-class SenseCraftCloud():
+class Cloud():
 
     def __init__(self, hass: HomeAssistant):
         self.hass = hass
@@ -61,7 +61,7 @@ class SenseCraftCloud():
     @staticmethod
     def from_config(hass: HomeAssistant, config: dict):
         # 从字典创建对象
-        cloud = SenseCraftCloud(hass)
+        cloud = Cloud(hass)
         cloud.username = config.get('username')
         cloud.password = config.get('password')
         cloud.env = config.get('env')
@@ -233,11 +233,9 @@ class SenseCraftCloud():
                 self.broker, 1883, username, self.accesskey, client_id)
 
             if self.mqttClient.connect():
-                print("connect cloud successfully.")
                 self.mqttClient.subscribe(topic)
                 self.mqttClient.message_received = self.received_message
                 return True
-            print("connect cloud failed.")
             return False
         except:
             return False
@@ -245,4 +243,3 @@ class SenseCraftCloud():
         if self.mqttClient:
             self.mqttClient.loop_stop()
             self.mqttClient.disconnect()
-            self.connected = False

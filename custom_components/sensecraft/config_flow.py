@@ -9,10 +9,11 @@ from homeassistant import config_entries, exceptions
 import homeassistant.helpers.config_validation as cv
 from collections import OrderedDict
 from homeassistant.data_entry_flow import FlowResult
-from .core.sensecraft_cloud import SenseCraftCloud
-from .core.sensecraft_local import SenseCraftLocal
-from .core.sscma_local import SScmaLocal
-from .core.watcher_local import WatcherLocal
+from .core.cloud import Cloud
+from .core.jetson import Jetson
+from .core.grove_vision_ai_v2 import GroveVisionAiV2
+from .core.recamera import ReCamera
+from .core.watcher import Watcher
 from homeassistant.helpers.selector import (
     SelectSelector,
     SelectSelectorConfig,
@@ -26,11 +27,10 @@ from .const import (
     DOMAIN,
     SUPPORTED_ENV,
     ENV_CHINA,
-    SENSECRAFT,
-    SSCMA,
-    JETSON_NAME,
-    GROVE_WE_2_NAME,
+    JETSON,
+    GROVE_VISION_AI_V2,
     WATCHER,
+    RECAMERA_GIMBAL,
     SUPPORTED_DEVICE,
     BROKER,
     PORT,
@@ -48,10 +48,9 @@ from .const import (
     DEVICE_MAC,
     DEVICE_ID,
     DEVICE_TYPE,
-    SENSECRAFT_CLOUD,
+    CLOUD,
     CONFIG_DATA,
     DATA_SOURCE,
-    CLOUD,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -121,12 +120,12 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             user_input = {}
         else:
             try:
-                cloud = SenseCraftCloud(self.hass)
+                cloud = Cloud(self.hass)
                 username = user_input[ACCOUNT_USERNAME]
                 password = user_input[ACCOUNT_PASSWORD]
                 env = user_input[ACCOUNT_ENV]
                 await cloud.senseCraftAuth(username, password, env)
-                self.data[SENSECRAFT_CLOUD] = cloud
+                self.data[CLOUD] = cloud
                 return await self.async_step_cloud_filter()
             except NoApiKey:
                 errors["base"] = "no_apikey"
@@ -151,7 +150,7 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     ) -> FlowResult:
         """Handle multiple cloud devices found."""
         errors: dict[str, str] = {}
-        cloud: SenseCraftCloud = self.data[SENSECRAFT_CLOUD]
+        cloud: Cloud = self.data[CLOUD]
         if user_input is not None:
             selectDevice = user_input[SELECTED_DEVICE]
             cloud.selectedDeviceEuis = selectDevice
@@ -161,7 +160,8 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             })
 
         deviceList = await cloud.getDeviceList()
-        all_device = {device.get('device_eui'): f"{device.get('device_eui')} {device.get('device_name')}" for device in deviceList}
+        all_device = {device.get(
+            'device_eui'): f"{device.get('device_eui')} {device.get('device_name')}" for device in deviceList}
 
         select_schema = vol.Schema({
             vol.Required(SELECTED_DEVICE): cv.multi_select(
@@ -182,13 +182,14 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             user_input = {}
         else:
             device = user_input['device']
-            if device == JETSON_NAME:
+            if device == JETSON:
                 return await self.async_step_local_jetson()
-            elif device == GROVE_WE_2_NAME:
+            elif device == GROVE_VISION_AI_V2:
                 return await self.async_step_local_grove_vision_ai()
             elif device == WATCHER:
                 return await self.async_step_local_watcher()
-
+            elif device == RECAMERA_GIMBAL:
+                return await self.async_step_local_recamera_gimbal()
         fields: OrderedDict[Any, Any] = OrderedDict()
         fields[vol.Optional('device', default=user_input.get(
             'device', WATCHER))] = DEVICE_TYPE_SELECTOR
@@ -211,8 +212,8 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 config: dict[str, str] = {}
                 config[DEVICE_HOST] = host
                 config[DEVICE_NAME] = name
-                config[DEVICE_TYPE] = SENSECRAFT
-                local = SenseCraftLocal(self.hass, config)
+                config[DEVICE_TYPE] = JETSON
+                local = Jetson(self.hass, config)
                 info = await local.getInfo()
                 device_mac = info.get('mac')
                 if device_mac is not None:
@@ -224,7 +225,7 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     self._abort_if_unique_id_configured()
                     return self.async_create_entry(title=name, data={
                         CONFIG_DATA: config,
-                        DATA_SOURCE: SENSECRAFT
+                        DATA_SOURCE: JETSON
                     })
                 else:
                     errors["base"] = "setup_error"
@@ -236,7 +237,7 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         fields[vol.Required('host', default=user_input.get(
             'host', ''))] = TEXT_SELECTOR
         fields[vol.Required('name', default=user_input.get(
-            'name', JETSON_NAME))] = TEXT_SELECTOR
+            'name', JETSON))] = TEXT_SELECTOR
 
         return self.async_show_form(
             step_id="local_jetson", data_schema=vol.Schema(fields), errors=errors
@@ -258,7 +259,7 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             device[MQTT_BROKER] = ''
             device[MQTT_PORT] = ''
             device[CLIENT_ID] = name
-            device[DEVICE_TYPE] = SSCMA
+            device[DEVICE_TYPE] = GROVE_VISION_AI_V2
             self.context['device'] = device
             await self.async_set_unique_id(name)
             self._abort_if_unique_id_configured()
@@ -270,6 +271,35 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
         return self.async_show_form(
             step_id="local_grove_vision_ai", data_schema=vol.Schema(fields), errors=errors
+        )
+
+    async def async_step_local_recamera_gimbal(
+        self, user_input: dict[str, Any] | None = None
+    ) -> FlowResult:
+        """Confirm the setup."""
+        errors: dict[str, str] = {}
+        if user_input is None:
+            user_input = {}
+        else:
+            sn = user_input['sn']
+            name = f"recamera_gimbal_{sn}"
+            device: dict[str, str] = {}
+            device[DEVICE_NAME] = name
+            device[DEVICE_ID] = sn
+            device[MQTT_BROKER] = ''
+            device[MQTT_PORT] = ''
+            device[DEVICE_TYPE] = RECAMERA_GIMBAL
+            self.context['device'] = device
+            await self.async_set_unique_id(name)
+            self._abort_if_unique_id_configured()
+            return await self.async_step_recamera_gimbal_mqtt()
+
+        fields: OrderedDict[Any, Any] = OrderedDict()
+        fields[vol.Required('sn', default=user_input.get(
+            'sn', ''))] = TEXT_SELECTOR
+
+        return self.async_show_form(
+            step_id="local_recamera_gimbal", data_schema=vol.Schema(fields), errors=errors
         )
 
     async def async_step_local_watcher(
@@ -309,7 +339,7 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             user_input = {}
         else:
             try:
-                local = WatcherLocal(self.hass, device)
+                local = Watcher(self.hass, device)
                 config = local.to_config()
                 return self.async_create_entry(title=eui, data={
                     CONFIG_DATA: config,
@@ -353,7 +383,7 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             device[DEVICE_HOST] = device_host
             device[DEVICE_PORT] = device_port
             device[DEVICE_MAC] = device_mac
-            device[DEVICE_TYPE] = SENSECRAFT
+            device[DEVICE_TYPE] = JETSON
             device[MQTT_BROKER] = device_host
             device[MQTT_PORT] = mqtt_port
             await self.async_set_unique_id(device_mac)
@@ -372,7 +402,7 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 return self.async_abort(reason="mdns_missing_mqtt")
             device[DEVICE_NAME] = device_name
             device[DEVICE_ID] = device_name
-            device[DEVICE_TYPE] = SSCMA
+            device[DEVICE_TYPE] = GROVE_VISION_AI_V2
             device[MQTT_BROKER] = mqtt_broker
             device[MQTT_PORT] = mqtt_port
             device[MQTT_TOPIC] = dest
@@ -394,10 +424,10 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         device_name = device[DEVICE_NAME]
         device_type = device[DEVICE_TYPE]
         if user_input is not None:
-            if device_type == SENSECRAFT:
-                local = SenseCraftLocal(self.hass, device)
-            elif device_type == SSCMA:
-                local = SScmaLocal(self.hass, device)
+            if device_type == JETSON:
+                local = Jetson(self.hass, device)
+            elif device_type == GROVE_VISION_AI_V2:
+                local = GroveVisionAiV2(self.hass, device)
             config = local.to_config()
             return self.async_create_entry(title=device_name, data={
                 CONFIG_DATA: config,
@@ -431,7 +461,7 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 client_id = user_input[CLIENT_ID]
                 if not has_mqtt_topic:
                     device[MQTT_TOPIC] = f"sscma/v0/{client_id}"
-                local = SScmaLocal(self.hass, device)
+                local = GroveVisionAiV2(self.hass, device)
                 local.mqttBroker = user_input[BROKER]
                 local.mqttPort = user_input[PORT]
                 if not has_mqtt_topic:
@@ -466,6 +496,58 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
         return self.async_show_form(
             step_id="mqtt",
+            data_schema=vol.Schema(fields),
+            errors=errors,
+            description_placeholders={"name": device_name}
+        )
+
+
+    async def async_step_recamera_gimbal_mqtt(
+        self, user_input: dict[str, Any] | None = None
+    ) -> FlowResult:
+        """set up mqtt broker and connect device with tcp."""
+        errors: dict[str, str] = {}
+        device = self.context['device']
+        device_name = device[DEVICE_NAME]
+        device_type = device[DEVICE_TYPE]
+        mqtt_broker = device[MQTT_BROKER]
+        mqtt_port = device[MQTT_PORT]
+
+        if user_input is None:
+            user_input = {}
+        else:
+            try:
+
+                local = ReCamera(self.hass, device)
+                local.mqttBroker = user_input[BROKER]
+                local.mqttPort = user_input[PORT]
+                local.mqttUsername = user_input[ACCOUNT_USERNAME]
+                local.mqttPassword = user_input[ACCOUNT_PASSWORD]
+
+                if local.setMqtt():
+                    local.stop()
+                    config = local.to_config()
+                    return self.async_create_entry(title=device_name, data={
+                        CONFIG_DATA: config,
+                        DATA_SOURCE: device_type
+                    })
+                else:
+                    errors["base"] = "setup_error"
+            except Exception:
+                _LOGGER.exception("Unexpected exception")
+                errors["base"] = "setup_error"
+        fields: OrderedDict[Any, Any] = OrderedDict()
+        fields[vol.Required(BROKER, default=user_input.get(
+            BROKER, mqtt_broker))] = TEXT_SELECTOR
+        fields[vol.Required(PORT, default=user_input.get(
+            PORT, mqtt_port))] = TEXT_SELECTOR
+        fields[vol.Optional(ACCOUNT_USERNAME, default=user_input.get(
+            ACCOUNT_USERNAME, ''))] = TEXT_SELECTOR
+        fields[vol.Optional(ACCOUNT_PASSWORD, default=user_input.get(
+            ACCOUNT_PASSWORD, ''))] = PASSWORD_SELECTOR
+
+        return self.async_show_form(
+            step_id="recamera_gimbal_mqtt",
             data_schema=vol.Schema(fields),
             errors=errors,
             description_placeholders={"name": device_name}

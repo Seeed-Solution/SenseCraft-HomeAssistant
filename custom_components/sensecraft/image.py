@@ -7,11 +7,10 @@ from homeassistant.components.image import ImageEntity
 from homeassistant.helpers.device_registry import (
     DeviceInfo,
 )
-from .core.watcher_local import WatcherLocal
+from .core.watcher import Watcher
 from .const import (
     DOMAIN,
     WATCHER,
-    WATCHER_LOCAL,
     DATA_SOURCE
 )
 
@@ -27,8 +26,8 @@ async def async_setup_entry(
     data_source = data.get(DATA_SOURCE)
 
     if data_source == WATCHER:
-        watcherLocal: WatcherLocal = data[WATCHER_LOCAL]
-        deviceId = watcherLocal.deviceId
+        watcher: Watcher = data[WATCHER]
+        deviceId = watcher.deviceId
         entities = [WatcherImage(hass, deviceId)]
         async_add_entities(entities, update_before_add=False)
 
@@ -77,7 +76,7 @@ class WatcherImage(ImageEntity):
             self._image_path = None
 
         self._attr_image_last_updated = dt_util.utcnow() 
-        self.hass.async_add_job(self.async_write_ha_state)
+        self.hass.async_create_task(self.async_write_ha_state)
 
     @property
     def device_info(self) -> DeviceInfo:

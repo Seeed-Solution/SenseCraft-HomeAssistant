@@ -58,4 +58,5 @@ class MQTTClient:
         self.client.subscribe(topic)
 
     def publish(self, topic, payload=None, qos=0, retain=False):
+        print('publish:', topic, payload)
         self.client.publish(topic, payload, qos, retain)

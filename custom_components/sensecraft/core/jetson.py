@@ -8,7 +8,7 @@ from ..const import (
 )
 _LOGGER = logging.getLogger(__name__)
 
-class SenseCraftLocal():
+class Jetson():
 
     def __init__(self, hass: HomeAssistant, config: dict):
         self.hass = hass
@@ -46,7 +46,7 @@ class SenseCraftLocal():
     @staticmethod
     def from_config(hass: HomeAssistant, config: dict):
         # 从字典创建对象
-        local = SenseCraftLocal(hass, config)
+        local = Jetson(hass, config)
         return local
 
     def setMqtt(self):

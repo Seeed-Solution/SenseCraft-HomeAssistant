@@ -94,7 +94,7 @@ class WebAppSingleton:
             return web.json_response({'code': 11999, 'msg': "Illegal Input", 'data': {}})
 
 
-class WatcherLocal():
+class Watcher():
     def __init__(self, hass: HomeAssistant, config: dict):
         self.hass = hass
         self.deviceId = config.get('device_id')
@@ -111,5 +111,5 @@ class WatcherLocal():
     @staticmethod
     def from_config(hass: HomeAssistant, config: dict):
         # 从字典创建对象
-        local = WatcherLocal(hass, config)
+        local = Watcher(hass, config)
         return local

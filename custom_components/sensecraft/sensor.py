@@ -5,10 +5,10 @@ import logging
 from homeassistant import config_entries
 from homeassistant.core import HomeAssistant
 
-from .core.sensecraft_cloud import SenseCraftCloud
-from .core.sensecraft_local import SenseCraftLocal
-from .core.sscma_local import SScmaLocal
-from .core.watcher_local import WatcherLocal
+from .core.cloud import Cloud
+from .core.jetson import Jetson
+from .core.grove_vision_ai_v2 import GroveVisionAiV2
+from .core.watcher import Watcher
 from homeassistant.const import (
     PERCENTAGE,
     UnitOfTemperature,
@@ -20,21 +20,13 @@ from homeassistant.helpers.device_registry import (
 )
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.entity import Entity
-from homeassistant.helpers.entity_platform import AddEntitiesCallback
-from homeassistant.helpers.typing import ConfigType, DiscoveryInfoType
-from homeassistant.components.select import SelectEntity
-from homeassistant.const import Platform
 from .const import (
     MEASUREMENT_DICT,
     DOMAIN,
-    SENSECRAFT_CLOUD,
-    SENSECRAFT_LOCAL,
-    SSCMA_LOCAL,
-    WATCHER_LOCAL,
-    DATA_SOURCE,
     CLOUD,
-    SENSECRAFT,
-    SSCMA,
+    JETSON,
+    DATA_SOURCE,
+    GROVE_VISION_AI_V2,
     WATCHER
 )
 
@@ -51,7 +43,7 @@ async def async_setup_entry(
     data_source = data.get(DATA_SOURCE)
 
     if data_source == CLOUD:
-        cloud: SenseCraftCloud = data[SENSECRAFT_CLOUD]
+        cloud: Cloud = data[CLOUD]
         deviceInfoList = await cloud.getSelectedDeviceInfo()
 
         selectedDeviceEuis = cloud.selectedDeviceEuis
@@ -77,11 +69,11 @@ async def async_setup_entry(
         async_add_entities(entities, update_before_add=True)
         await cloud.mqttConnect()
 
-    elif data_source == SENSECRAFT:
-        senseCraftLocal: SenseCraftLocal = data[SENSECRAFT_LOCAL]
-        mac = senseCraftLocal.deviceMac
-        deviceName = senseCraftLocal.deviceName
-        models = await senseCraftLocal.getModel()
+    elif data_source == JETSON:
+        jetson: Jetson = data[JETSON]
+        mac = jetson.deviceMac
+        deviceName = jetson.deviceName
+        models = await jetson.getModel()
         entities = []
         for key in models:
             result = InferenceResult(mac, deviceName, models[key])
@@ -113,11 +105,11 @@ async def async_setup_entry(
 
         async_add_entities(entities, update_before_add=False)
 
-    elif data_source == SSCMA:
-        sscmaLocal: SScmaLocal = data[SSCMA_LOCAL]
-        deviceId = sscmaLocal.deviceId
-        deviceName = sscmaLocal.deviceName
-        classes = sscmaLocal.classes
+    elif data_source == GROVE_VISION_AI_V2:
+        groveVisionAiV2: GroveVisionAiV2 = data[GROVE_VISION_AI_V2]
+        deviceId = groveVisionAiV2.deviceId
+        deviceName = groveVisionAiV2.deviceName
+        classes = groveVisionAiV2.classes
         entities = []
         for key in classes:
             result = InferenceResult(deviceId, deviceName, key)
@@ -125,8 +117,8 @@ async def async_setup_entry(
         async_add_entities(entities, update_before_add=False)
 
     elif data_source == WATCHER:
-        watcherLocal: WatcherLocal = data[WATCHER_LOCAL]
-        eui = watcherLocal.deviceId
+        watcher: Watcher = data[WATCHER]
+        eui = watcher.deviceId
         entities = []
 
         temperature = WatcherSensor(eui, 'temperature')
@@ -197,7 +189,7 @@ class CloudSensor(Entity):
 
     def handle_event(self, event):
         self._state = event.data.get('value')
-        self.hass.async_add_job(self.async_write_ha_state)
+        self.hass.async_create_task(self.async_write_ha_state())
 
     @property
     def device_info(self) -> DeviceInfo:
@@ -250,7 +242,7 @@ class JetsonDeviceInfo(Entity):
 
     def handle_event(self, event):
         self._state = event.data.get('value')
-        self.hass.async_add_job(self.async_write_ha_state)
+        self.hass.async_create_task(self.async_write_ha_state())
 
     @property
     def device_info(self) -> DeviceInfo:
@@ -298,7 +290,7 @@ class InferenceResult(Entity):
 
     def handle_event(self, event):
         self._state = event.data.get('value')
-        self.hass.async_add_job(self.async_write_ha_state)
+        self.hass.async_create_task(self.async_write_ha_state())
 
     @property
     def device_info(self) -> DeviceInfo:
@@ -343,7 +335,7 @@ class WatcherSensor(Entity):
 
     def handle_event(self, event):
         self._state = event.data.get('value')
-        self.hass.async_add_job(self.async_write_ha_state)
+        self.hass.async_create_task(self.async_write_ha_state())
 
     @property
     def device_info(self) -> DeviceInfo:
@@ -387,7 +379,7 @@ class AlarmSensor(Entity):
 
     def handle_event(self, event):
         self._state = event.data.get('text')
-        self.hass.async_add_job(self.async_write_ha_state)
+        self.hass.async_create_task(self.async_write_ha_state())
 
     @property
     def device_info(self) -> DeviceInfo:
