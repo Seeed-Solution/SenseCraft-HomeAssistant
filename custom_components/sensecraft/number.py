@@ -143,7 +143,8 @@ class Confidence(ConfigNumber):
         local: GroveVisionAiV2 = data[GROVE_VISION_AI_V2]
         if local is not None:
             local.device.tscore = value
-            self.hass.async_create_task(self.async_write_ha_state)
+            if self.hass:
+                self.hass.loop.call_soon_threadsafe(self.async_schedule_update_ha_state)
 
 
 class IOU(ConfigNumber):
@@ -169,7 +170,8 @@ class IOU(ConfigNumber):
         local: GroveVisionAiV2 = data[GROVE_VISION_AI_V2]
         if local is not None:
             local.device.tiou = value
-            self.hass.async_create_task(self.async_write_ha_state)
+            if self.hass:
+                self.hass.loop.call_soon_threadsafe(self.async_schedule_update_ha_state)
 
 
 class ReCameraMotor(NumberEntity):
@@ -218,11 +220,13 @@ class ReCameraMotor(NumberEntity):
             # 发送控制命令
             self._recamera.send_control(command)
             self._attr_native_value = value
-            self.hass.async_create_task(self.async_write_ha_state)
+            if self.hass:
+                self.hass.loop.call_soon_threadsafe(self.async_schedule_update_ha_state)
         except Exception as e:
             _LOGGER.error("Error setting motor position: %s", e)
 
     def update_state(self, angle: float) -> None:
         """更新电机状态."""
         self._attr_native_value = angle
-        self.hass.async_create_task(self.async_write_ha_state)
+        if self.hass:
+            self.hass.loop.call_soon_threadsafe(self.async_schedule_update_ha_state)

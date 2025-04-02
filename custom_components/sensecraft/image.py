@@ -76,7 +76,8 @@ class WatcherImage(ImageEntity):
             self._image_path = None
 
         self._attr_image_last_updated = dt_util.utcnow() 
-        self.hass.async_create_task(self.async_write_ha_state)
+        if self.hass:
+            self.hass.loop.call_soon_threadsafe(self.async_schedule_update_ha_state)
 
     @property
     def device_info(self) -> DeviceInfo:

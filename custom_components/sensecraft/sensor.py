@@ -189,7 +189,8 @@ class CloudSensor(Entity):
 
     def handle_event(self, event):
         self._state = event.data.get('value')
-        self.hass.async_create_task(self.async_write_ha_state())
+        if self.hass:
+            self.hass.loop.call_soon_threadsafe(self.async_schedule_update_ha_state)
 
     @property
     def device_info(self) -> DeviceInfo:
@@ -242,7 +243,8 @@ class JetsonDeviceInfo(Entity):
 
     def handle_event(self, event):
         self._state = event.data.get('value')
-        self.hass.async_create_task(self.async_write_ha_state())
+        if self.hass:
+            self.hass.loop.call_soon_threadsafe(self.async_schedule_update_ha_state)
 
     @property
     def device_info(self) -> DeviceInfo:
@@ -290,7 +292,8 @@ class InferenceResult(Entity):
 
     def handle_event(self, event):
         self._state = event.data.get('value')
-        self.hass.async_create_task(self.async_write_ha_state())
+        if self.hass:
+            self.hass.loop.call_soon_threadsafe(self.async_schedule_update_ha_state)
 
     @property
     def device_info(self) -> DeviceInfo:
@@ -335,7 +338,8 @@ class WatcherSensor(Entity):
 
     def handle_event(self, event):
         self._state = event.data.get('value')
-        self.hass.async_create_task(self.async_write_ha_state())
+        if self.hass:
+            self.hass.loop.call_soon_threadsafe(self.async_schedule_update_ha_state)
 
     @property
     def device_info(self) -> DeviceInfo:
@@ -379,7 +383,8 @@ class AlarmSensor(Entity):
 
     def handle_event(self, event):
         self._state = event.data.get('text')
-        self.hass.async_create_task(self.async_write_ha_state())
+        if self.hass:
+            self.hass.loop.call_soon_threadsafe(self.async_schedule_update_ha_state)
 
     @property
     def device_info(self) -> DeviceInfo:
