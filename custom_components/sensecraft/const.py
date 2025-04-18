@@ -5,11 +5,10 @@ DOMAIN = "sensecraft"
 ENV_CHINA = "china"
 ENV_GLOBAL = "global"
 SUPPORTED_ENV = [ENV_CHINA, ENV_GLOBAL]
-JETSON = "Jetson"
-GROVE_VISION_AI_V2 = "grove_vision_ai_v2"
+GROVE_VISION_AI = "Grove Vision AI V2"
 WATCHER = "Watcher"
-RECAMERA_GIMBAL = "reCamera gimbal"
-SUPPORTED_DEVICE = [WATCHER, GROVE_VISION_AI_V2, JETSON]
+RECAMERA = "reCamera Gimbal"
+SUPPORTED_DEVICE = [GROVE_VISION_AI, RECAMERA, WATCHER]
 CLOUD = "cloud"
 ACCOUNT_ENV = "env"
 

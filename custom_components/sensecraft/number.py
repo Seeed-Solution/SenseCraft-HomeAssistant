@@ -4,20 +4,21 @@ import json  # 添加 json 导入
 
 from homeassistant.components.number import NumberEntity, NumberMode
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.core import HomeAssistant, callback
+from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.device_registry import DeviceInfo
-from .core.grove_vision_ai_v2 import GroveVisionAiV2
+from .core.grove_vision_ai import GroveVisionAI
 from .core.recamera import ReCamera
 from .const import (
     DOMAIN,
     DATA_SOURCE,
-    GROVE_VISION_AI_V2,
-    RECAMERA_GIMBAL,
+    GROVE_VISION_AI,
+    RECAMERA,
 )
 import logging
 
 _LOGGER = logging.getLogger(__name__)
+
 
 async def async_setup_entry(
     hass: HomeAssistant,
@@ -27,8 +28,8 @@ async def async_setup_entry(
     """Set up the number platform."""
     data = hass.data[DOMAIN][config_entry.entry_id]
     data_source = data.get(DATA_SOURCE)
-    if data_source == GROVE_VISION_AI_V2:
-        local: GroveVisionAiV2 = data[GROVE_VISION_AI_V2]
+    if data_source == GROVE_VISION_AI:
+        local: GroveVisionAI = data[GROVE_VISION_AI]
         async_add_entities(
             [
                 Confidence(
@@ -45,39 +46,14 @@ async def async_setup_entry(
                 ),
             ]
         )
-    elif data_source == RECAMERA_GIMBAL:
-        recamera: ReCamera = data[RECAMERA_GIMBAL]
+    elif data_source == RECAMERA:
+        recamera: ReCamera = data[RECAMERA]
         motors = [
             ReCameraMotor(recamera, "Yaw Motor", 0x141, 0, 360),
             ReCameraMotor(recamera, "Pitch Motor", 0x142, 0, 180),
         ]
-        # 设置状态更新回调
-        recamera.on_received_state(lambda msg: handle_motor_state(motors, msg))
         async_add_entities(motors, False)
 
-        # jetson: Jetson = data[JETSON]
-        # camera = JetsonCamera(jetson.deviceMac, jetson.deviceName)
-        # jetson.on_monitor_stream(camera.received_image)
-        # async_add_entities([camera], False)
-
-def handle_motor_state(motors, msg):
-    """处理电机状态更新."""
-    try:
-        if isinstance(msg, bytes):
-            state_data = json.loads(msg.decode())
-        else:
-            state_data = json.loads(msg)
-
-        if state_data.get("state") == "set_angle":
-            motor_id = state_data.get("motor_id")
-            angle = state_data.get("angle")
-            
-            for motor in motors:
-                if motor.motor_id == motor_id:
-                    motor.update_state(angle)
-                    break
-    except Exception as e:
-        _LOGGER.error("Error handling motor state: %s", e)
 
 class ConfigNumber(NumberEntity):
     """Representation of Config Number entity."""
@@ -140,11 +116,10 @@ class Confidence(ConfigNumber):
         """Update the current value."""
         self._attr_native_value = value
         data = self.hass.data[DOMAIN][self._entry_id]
-        local: GroveVisionAiV2 = data[GROVE_VISION_AI_V2]
+        local: GroveVisionAI = data[GROVE_VISION_AI]
         if local is not None:
             local.device.tscore = value
-            if self.hass:
-                self.hass.loop.call_soon_threadsafe(self.async_schedule_update_ha_state)
+            self.async_schedule_update_ha_state()
 
 
 class IOU(ConfigNumber):
@@ -167,11 +142,10 @@ class IOU(ConfigNumber):
         """Update the current value."""
         self._attr_native_value = value
         data = self.hass.data[DOMAIN][self._entry_id]
-        local: GroveVisionAiV2 = data[GROVE_VISION_AI_V2]
+        local: GroveVisionAI = data[GROVE_VISION_AI]
         if local is not None:
             local.device.tiou = value
-            if self.hass:
-                self.hass.loop.call_soon_threadsafe(self.async_schedule_update_ha_state)
+            self.async_schedule_update_ha_state()
 
 
 class ReCameraMotor(NumberEntity):
@@ -179,7 +153,7 @@ class ReCameraMotor(NumberEntity):
 
     def __init__(
         self,
-        recamera,
+        recamera: ReCamera,
         name: str,
         motor_id: int,
         min_value: float,
@@ -189,6 +163,9 @@ class ReCameraMotor(NumberEntity):
         self._recamera = recamera
         self._attr_name = f"{recamera.deviceName} {name}"
         self._attr_unique_id = f"{recamera.deviceId}_{motor_id}"
+        self._event_type = f"sensecraft_recamera_{self._attr_unique_id}_angle"
+        self._event = None
+        self._connection_event = None
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, recamera.deviceId)},
             name=recamera.deviceName,
@@ -202,31 +179,71 @@ class ReCameraMotor(NumberEntity):
         self._attr_native_value = 0.0
         self._attr_mode = NumberMode.SLIDER
         self.motor_id = motor_id
-        # self.hass = recamera.hass
+
+    @property
+    def available(self) -> bool:
+        """Return True if entity is available."""
+        return self._recamera.connected
+
+    async def async_added_to_hass(self) -> None:
+        """Run when entity about to be added to hass."""
+        self._event = self.hass.bus.async_listen(
+            self._event_type, self._handle_state_event)
+        
+        # 添加连接状态事件监听
+        self._connection_event = self.hass.bus.async_listen(
+            f"sensecraft_recamera_{self._recamera.deviceId}_connection_state",
+            self._handle_connection_state
+        )
+
+    async def async_will_remove_from_hass(self) -> None:
+        """Entity being removed from hass."""
+        if self._event:
+            self._event()
+            self._event = None
+        
+        if self._connection_event:
+            self._connection_event()
+            self._connection_event = None
+    
+    def _handle_connection_state(self, event):
+        """Handle connection state changes."""
+        self._recamera.connected = event.data.get("connected", False)
+        self.hass.loop.call_soon_threadsafe(self.async_schedule_update_ha_state)
+    
+    async def _handle_state_event(self, event):
+        """处理状态事件"""
+        try:
+            state_data = event.data.get("data", {})
+            motor_id = state_data.get("motor_id")
+            angle = state_data.get("angle")
+            if motor_id == self.motor_id:
+                self.update_state(angle)
+        except Exception as e:
+            _LOGGER.error("Error handling state event: %s", e)
 
     async def async_set_native_value(self, value: float) -> None:
         """Set the motor position."""
         try:
             # 构建控制命令
             command = {
-                "code": 0,
-                "data": {
-                    "type": "motor_control",
-                    "command": "set_angle",
+                "command": "set_angle",
+                'param': {
                     "motor_id": self.motor_id,
                     "angle": value
                 }
             }
             # 发送控制命令
-            self._recamera.send_control(command)
-            self._attr_native_value = value
-            if self.hass:
-                self.hass.loop.call_soon_threadsafe(self.async_schedule_update_ha_state)
+            result = await self._recamera.send_control(command)
+            if result and result.get('code') == 0:
+                self._attr_native_value = value
+                self.async_schedule_update_ha_state()
+            
         except Exception as e:
             _LOGGER.error("Error setting motor position: %s", e)
 
     def update_state(self, angle: float) -> None:
         """更新电机状态."""
         self._attr_native_value = angle
-        if self.hass:
-            self.hass.loop.call_soon_threadsafe(self.async_schedule_update_ha_state)
+        self.hass.loop.call_soon_threadsafe(self.async_schedule_update_ha_state)
+

@@ -10,8 +10,7 @@ import homeassistant.helpers.config_validation as cv
 from collections import OrderedDict
 from homeassistant.data_entry_flow import FlowResult
 from .core.cloud import Cloud
-from .core.jetson import Jetson
-from .core.grove_vision_ai_v2 import GroveVisionAiV2
+from .core.grove_vision_ai import GroveVisionAI
 from .core.recamera import ReCamera
 from .core.watcher import Watcher
 from homeassistant.helpers.selector import (
@@ -22,15 +21,15 @@ from homeassistant.helpers.selector import (
     TextSelectorConfig,
     TextSelectorType,
 )
+from homeassistant.core import callback
 
 from .const import (
     DOMAIN,
     SUPPORTED_ENV,
     ENV_CHINA,
-    JETSON,
-    GROVE_VISION_AI_V2,
+    GROVE_VISION_AI,
     WATCHER,
-    RECAMERA_GIMBAL,
+    RECAMERA,
     SUPPORTED_DEVICE,
     BROKER,
     PORT,
@@ -85,6 +84,18 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     CONNECTION_CLASS = config_entries.CONN_CLASS_CLOUD_PUSH
 
     data: Optional[Dict[str, Any]] = {}
+
+    @staticmethod
+    @callback
+    def async_get_options_flow(
+        config_entry: config_entries.ConfigEntry,
+    ) -> config_entries.OptionsFlow:
+        """Get the options flow for this handler."""
+        # Only return OptionsFlowHandler for ReCamera devices
+        if config_entry.data.get(DATA_SOURCE) == RECAMERA:
+            return OptionsFlowHandler(config_entry)
+        # Return a dummy options flow for non-ReCamera devices
+        return DummyOptionsFlowHandler(config_entry)
 
     async def async_step_user(
         self, user_input: dict[str, Any] | None = None
@@ -182,65 +193,18 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             user_input = {}
         else:
             device = user_input['device']
-            if device == JETSON:
-                return await self.async_step_local_jetson()
-            elif device == GROVE_VISION_AI_V2:
+            if device == GROVE_VISION_AI:
                 return await self.async_step_local_grove_vision_ai()
             elif device == WATCHER:
                 return await self.async_step_local_watcher()
-            elif device == RECAMERA_GIMBAL:
-                return await self.async_step_local_recamera_gimbal()
+            elif device == RECAMERA:
+                return await self.async_step_local_recamera()
         fields: OrderedDict[Any, Any] = OrderedDict()
         fields[vol.Optional('device', default=user_input.get(
-            'device', WATCHER))] = DEVICE_TYPE_SELECTOR
+            'device', GROVE_VISION_AI))] = DEVICE_TYPE_SELECTOR
 
         return self.async_show_form(
             step_id="local", data_schema=vol.Schema(fields), errors=errors
-        )
-
-    async def async_step_local_jetson(
-        self, user_input: dict[str, Any] | None = None
-    ) -> FlowResult:
-        """Confirm the setup."""
-        errors: dict[str, str] = {}
-        if user_input is None:
-            user_input = {}
-        else:
-            try:
-                host = user_input['host']
-                name = user_input['name']
-                config: dict[str, str] = {}
-                config[DEVICE_HOST] = host
-                config[DEVICE_NAME] = name
-                config[DEVICE_TYPE] = JETSON
-                local = Jetson(self.hass, config)
-                info = await local.getInfo()
-                device_mac = info.get('mac')
-                if device_mac is not None:
-                    local.deviceMac = device_mac
-                    local.mqttBroker = host
-                    local.mqttPort = 1884
-                    config = local.to_config()
-                    await self.async_set_unique_id(device_mac)
-                    self._abort_if_unique_id_configured()
-                    return self.async_create_entry(title=name, data={
-                        CONFIG_DATA: config,
-                        DATA_SOURCE: JETSON
-                    })
-                else:
-                    errors["base"] = "setup_error"
-            except Exception:
-                _LOGGER.exception("Unexpected exception")
-                errors["base"] = "setup_error"
-
-        fields: OrderedDict[Any, Any] = OrderedDict()
-        fields[vol.Required('host', default=user_input.get(
-            'host', ''))] = TEXT_SELECTOR
-        fields[vol.Required('name', default=user_input.get(
-            'name', JETSON))] = TEXT_SELECTOR
-
-        return self.async_show_form(
-            step_id="local_jetson", data_schema=vol.Schema(fields), errors=errors
         )
 
     async def async_step_local_grove_vision_ai(
@@ -259,7 +223,7 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             device[MQTT_BROKER] = ''
             device[MQTT_PORT] = ''
             device[CLIENT_ID] = name
-            device[DEVICE_TYPE] = GROVE_VISION_AI_V2
+            device[DEVICE_TYPE] = GROVE_VISION_AI
             self.context['device'] = device
             await self.async_set_unique_id(name)
             self._abort_if_unique_id_configured()
@@ -271,173 +235,6 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
         return self.async_show_form(
             step_id="local_grove_vision_ai", data_schema=vol.Schema(fields), errors=errors
-        )
-
-    async def async_step_local_recamera_gimbal(
-        self, user_input: dict[str, Any] | None = None
-    ) -> FlowResult:
-        """Confirm the setup."""
-        errors: dict[str, str] = {}
-        if user_input is None:
-            user_input = {}
-        else:
-            sn = user_input['sn']
-            name = f"recamera_gimbal_{sn}"
-            device: dict[str, str] = {}
-            device[DEVICE_NAME] = name
-            device[DEVICE_ID] = sn
-            device[MQTT_BROKER] = ''
-            device[MQTT_PORT] = ''
-            device[DEVICE_TYPE] = RECAMERA_GIMBAL
-            self.context['device'] = device
-            await self.async_set_unique_id(name)
-            self._abort_if_unique_id_configured()
-            return await self.async_step_recamera_gimbal_mqtt()
-
-        fields: OrderedDict[Any, Any] = OrderedDict()
-        fields[vol.Required('sn', default=user_input.get(
-            'sn', ''))] = TEXT_SELECTOR
-
-        return self.async_show_form(
-            step_id="local_recamera_gimbal", data_schema=vol.Schema(fields), errors=errors
-        )
-
-    async def async_step_local_watcher(
-        self, user_input: dict[str, Any] | None = None
-    ) -> FlowResult:
-        """Confirm the setup."""
-        errors: dict[str, str] = {}
-        if user_input is None:
-            user_input = {}
-        else:
-            eui = user_input['eui']
-            device: dict[str, str] = {}
-            device[DEVICE_ID] = eui
-            self.context['device'] = device
-            await self.async_set_unique_id(eui)
-            self._abort_if_unique_id_configured()
-            return await self.async_step_watcher_confirm()
-
-        fields: OrderedDict[Any, Any] = OrderedDict()
-        fields[vol.Required('eui', default=user_input.get(
-            'eui', ''))] = TEXT_SELECTOR
-
-        return self.async_show_form(
-            step_id="local_watcher",
-            data_schema=vol.Schema(fields),
-            errors=errors
-        )
-
-    async def async_step_watcher_confirm(
-        self, user_input: dict[str, Any] | None = None
-    ) -> FlowResult:
-        """set up mqtt broker and connect device with tcp."""
-        errors: dict[str, str] = {}
-        device = self.context['device']
-        eui = device[DEVICE_ID]
-        if user_input is None:
-            user_input = {}
-        else:
-            try:
-                local = Watcher(self.hass, device)
-                config = local.to_config()
-                return self.async_create_entry(title=eui, data={
-                    CONFIG_DATA: config,
-                    DATA_SOURCE: WATCHER
-                })
-
-            except Exception:
-                errors["base"] = "setup_error"
-
-        return self.async_show_form(
-            step_id="watcher_confirm",
-            data_schema=vol.Schema({}),
-            errors=errors,
-            description_placeholders={"name": eui}
-        )
-
-    async def async_step_zeroconf(
-        self, discovery_info: zeroconf.ZeroconfServiceInfo
-    ) -> FlowResult:
-        """Handle zeroconf discovery."""
-        print('zeroconf', discovery_info)
-        type = discovery_info.type
-        name = discovery_info.name
-        device_name = name.removesuffix("." + type)
-        properties = discovery_info.properties
-        device: dict[str, str] = {}
-        if type == '_sensecraft._tcp.local.':
-            device_mac: str | None = properties.get("mac")
-            device_host: str | None = properties.get("host")
-            device_port: str | None = properties.get("port")
-            mqtt_port: str | None = properties.get("mqtt_port")
-            if device_mac is None:
-                return self.async_abort(reason="mdns_missing_mac")
-            if device_host is None:
-                return self.async_abort(reason="mdns_missing_host")
-            if device_port is None:
-                return self.async_abort(reason="mdns_missing_port")
-            if mqtt_port is None:
-                return self.async_abort(reason="mdns_missing_mqtt")
-            device[DEVICE_NAME] = device_name
-            device[DEVICE_HOST] = device_host
-            device[DEVICE_PORT] = device_port
-            device[DEVICE_MAC] = device_mac
-            device[DEVICE_TYPE] = JETSON
-            device[MQTT_BROKER] = device_host
-            device[MQTT_PORT] = mqtt_port
-            await self.async_set_unique_id(device_mac)
-            self._abort_if_unique_id_configured()
-            self.context.update(
-                {'title_placeholders': {'name': device_name + '_' + device_host}})
-            self.context['device'] = device
-            return await self.async_step_zeroconf_confirm()
-
-        elif type == '_sscma._tcp.local.':
-            mqtt_broker: str | None = properties.get("server")
-            mqtt_port: str | None = properties.get("port")
-            dest: str | None = properties.get("dest")
-            auth: str | None = properties.get("auth")
-            if mqtt_broker is None or mqtt_port is None or dest is None:
-                return self.async_abort(reason="mdns_missing_mqtt")
-            device[DEVICE_NAME] = device_name
-            device[DEVICE_ID] = device_name
-            device[DEVICE_TYPE] = GROVE_VISION_AI_V2
-            device[MQTT_BROKER] = mqtt_broker
-            device[MQTT_PORT] = mqtt_port
-            device[MQTT_TOPIC] = dest
-            await self.async_set_unique_id(device_name)
-            self._abort_if_unique_id_configured()
-            self.context.update({'title_placeholders': {'name': device_name}})
-            self.context['device'] = device
-            if auth is not None and auth == 'y':
-                return await self.async_step_mqtt()
-            else:
-                return await self.async_step_zeroconf_confirm()
-
-    async def async_step_zeroconf_confirm(
-        self, user_input: dict[str, Any] | None = None
-    ) -> FlowResult:
-        """Handle a flow initiated by zeroconf."""
-        errors: dict[str, str] = {}
-        device = self.context['device']
-        device_name = device[DEVICE_NAME]
-        device_type = device[DEVICE_TYPE]
-        if user_input is not None:
-            if device_type == JETSON:
-                local = Jetson(self.hass, device)
-            elif device_type == GROVE_VISION_AI_V2:
-                local = GroveVisionAiV2(self.hass, device)
-            config = local.to_config()
-            return self.async_create_entry(title=device_name, data={
-                CONFIG_DATA: config,
-                DATA_SOURCE: device_type
-            })
-
-        return self.async_show_form(
-            step_id="zeroconf_confirm",
-            errors=errors,
-            description_placeholders={"name": device_name},
         )
 
     async def async_step_mqtt(
@@ -461,7 +258,7 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 client_id = user_input[CLIENT_ID]
                 if not has_mqtt_topic:
                     device[MQTT_TOPIC] = f"sscma/v0/{client_id}"
-                local = GroveVisionAiV2(self.hass, device)
+                local = GroveVisionAI(self.hass, device)
                 local.mqttBroker = user_input[BROKER]
                 local.mqttPort = user_input[PORT]
                 if not has_mqtt_topic:
@@ -477,7 +274,7 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                         DATA_SOURCE: device_type
                     })
                 else:
-                    errors["base"] = "setup_error"
+                    errors["base"] = "cannot_connect"
             except Exception:
                 _LOGGER.exception("Unexpected exception")
                 errors["base"] = "setup_error"
@@ -501,56 +298,266 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             description_placeholders={"name": device_name}
         )
 
+    async def async_step_local_recamera(
+        self, user_input: dict[str, Any] | None = None
+    ) -> FlowResult:
+        """Confirm the setup."""
+        errors: dict[str, str] = {}
+        if user_input is None:
+            user_input = {}
+        else:
+            sn = user_input['device_id']
+            device: dict[str, str] = {}
+            device[DEVICE_ID] = sn
+            self.context['device'] = device
 
-    async def async_step_recamera_gimbal_mqtt(
+            # 设置唯一ID并检查是否已配置
+            await self.async_set_unique_id(sn)
+            self._abort_if_unique_id_configured()
+            
+            # 直接进入下一步，不进行连接测试
+            return await self.async_step_recamera_confirm()
+
+        fields: OrderedDict[Any, Any] = OrderedDict()
+        fields[vol.Required('device_id', default=user_input.get(
+            'device_id', ''))] = TEXT_SELECTOR
+
+        return self.async_show_form(
+            step_id="local_recamera", 
+            data_schema=vol.Schema(fields), 
+            errors=errors
+        )
+
+    async def async_step_recamera_confirm(
+        self, user_input: dict[str, Any] | None = None
+    ) -> FlowResult:
+        """Set up WebSocket connection and verify device."""
+        errors: dict[str, str] = {}
+        device = self.context['device']
+        sn = device[DEVICE_ID]
+        name = f"recamera_gimbal_{sn}"
+        
+        if user_input is None:
+            user_input = {}
+        else:
+            # 获取用户输入的IP地址
+            ip = user_input['device_host']
+            device[DEVICE_HOST] = ip
+            
+            try:
+                # 创建临时ReCamera实例并测试连接
+                local = ReCamera(self.hass, device)
+                if await local.async_test_connection():
+                    config = local.to_config()
+                    return self.async_create_entry(title=name, data={
+                        CONFIG_DATA: config,
+                        DATA_SOURCE: RECAMERA
+                    })
+                else:
+                    errors["base"] = "cannot_connect"
+            except Exception:
+                errors["base"] = "setup_error"
+
+        # 显示IP输入表单
+        fields: OrderedDict[Any, Any] = OrderedDict()
+        fields[vol.Required('device_host', default=user_input.get(
+            'device_host', ''))] = TEXT_SELECTOR
+
+        return self.async_show_form(
+            step_id="recamera_confirm",
+            data_schema=vol.Schema(fields),
+            errors=errors
+        )
+
+    async def async_step_local_watcher(
+        self, user_input: dict[str, Any] | None = None
+    ) -> FlowResult:
+        """Confirm the setup."""
+        errors: dict[str, str] = {}
+        if user_input is None:
+            user_input = {}
+        else:
+            eui = user_input['device_id']
+            device: dict[str, str] = {}
+            device[DEVICE_ID] = eui
+            self.context['device'] = device
+
+            await self.async_set_unique_id(eui)
+            self._abort_if_unique_id_configured()
+            return await self.async_step_watcher_confirm()
+
+        fields: OrderedDict[Any, Any] = OrderedDict()
+        fields[vol.Required('device_id', default=user_input.get(
+            'device_id', ''))] = TEXT_SELECTOR
+
+        return self.async_show_form(
+            step_id="local_watcher",
+            data_schema=vol.Schema(fields),
+            errors=errors
+        )
+
+    async def async_step_watcher_confirm(
         self, user_input: dict[str, Any] | None = None
     ) -> FlowResult:
         """set up mqtt broker and connect device with tcp."""
         errors: dict[str, str] = {}
         device = self.context['device']
-        device_name = device[DEVICE_NAME]
-        device_type = device[DEVICE_TYPE]
-        mqtt_broker = device[MQTT_BROKER]
-        mqtt_port = device[MQTT_PORT]
-
+        eui = device[DEVICE_ID]
+        name = f"watcher_{eui}"
         if user_input is None:
             user_input = {}
         else:
             try:
+                local = Watcher(self.hass, device)
+                config = local.to_config()
+                return self.async_create_entry(title=name, data={
+                    CONFIG_DATA: config,
+                    DATA_SOURCE: WATCHER
+                })
 
-                local = ReCamera(self.hass, device)
-                local.mqttBroker = user_input[BROKER]
-                local.mqttPort = user_input[PORT]
-                local.mqttUsername = user_input[ACCOUNT_USERNAME]
-                local.mqttPassword = user_input[ACCOUNT_PASSWORD]
-
-                if local.setMqtt():
-                    local.stop()
-                    config = local.to_config()
-                    return self.async_create_entry(title=device_name, data={
-                        CONFIG_DATA: config,
-                        DATA_SOURCE: device_type
-                    })
-                else:
-                    errors["base"] = "setup_error"
             except Exception:
-                _LOGGER.exception("Unexpected exception")
                 errors["base"] = "setup_error"
-        fields: OrderedDict[Any, Any] = OrderedDict()
-        fields[vol.Required(BROKER, default=user_input.get(
-            BROKER, mqtt_broker))] = TEXT_SELECTOR
-        fields[vol.Required(PORT, default=user_input.get(
-            PORT, mqtt_port))] = TEXT_SELECTOR
-        fields[vol.Optional(ACCOUNT_USERNAME, default=user_input.get(
-            ACCOUNT_USERNAME, ''))] = TEXT_SELECTOR
-        fields[vol.Optional(ACCOUNT_PASSWORD, default=user_input.get(
-            ACCOUNT_PASSWORD, ''))] = PASSWORD_SELECTOR
 
         return self.async_show_form(
-            step_id="recamera_gimbal_mqtt",
-            data_schema=vol.Schema(fields),
+            step_id="watcher_confirm",
+            data_schema=vol.Schema({}),
             errors=errors,
-            description_placeholders={"name": device_name}
+            description_placeholders={"name": name}
+        )
+
+    async def async_step_zeroconf(
+        self, discovery_info: zeroconf.ZeroconfServiceInfo
+    ) -> FlowResult:
+        """Handle zeroconf discovery."""
+        type = discovery_info.type
+        name = discovery_info.name
+        device_name = name.removesuffix("." + type)
+        properties = discovery_info.properties
+        device: dict[str, str] = {}
+        if type == '_sscma._tcp.local.':
+            mqtt_broker: str | None = properties.get("server")
+            mqtt_port: str | None = properties.get("port")
+            dest: str | None = properties.get("dest")
+            auth: str | None = properties.get("auth")
+            if mqtt_broker is None or mqtt_port is None or dest is None:
+                return self.async_abort(reason="mdns_missing_mqtt")
+            device[DEVICE_NAME] = device_name
+            device[DEVICE_ID] = device_name
+            device[DEVICE_TYPE] = GROVE_VISION_AI
+            device[MQTT_BROKER] = mqtt_broker
+            device[MQTT_PORT] = mqtt_port
+            device[MQTT_TOPIC] = dest
+            await self.async_set_unique_id(device_name)
+            self._abort_if_unique_id_configured()
+            self.context.update({'title_placeholders': {'name': device_name}})
+            self.context['device'] = device
+            if auth is not None and auth == 'y':
+                return await self.async_step_mqtt()
+            else:
+                return await self.async_step_zeroconf_confirm()
+
+    async def async_step_zeroconf_confirm(
+        self, user_input: dict[str, Any] | None = None
+    ) -> FlowResult:
+        """Handle a flow initiated by zeroconf."""
+        errors: dict[str, str] = {}
+        device = self.context['device']
+        device_name = device[DEVICE_NAME]
+        device_type = device[DEVICE_TYPE]
+        if user_input is not None:
+            if device_type == GROVE_VISION_AI:
+                local = GroveVisionAI(self.hass, device)
+            config = local.to_config()
+            return self.async_create_entry(title=device_name, data={
+                CONFIG_DATA: config,
+                DATA_SOURCE: device_type
+            })
+
+        return self.async_show_form(
+            step_id="zeroconf_confirm",
+            errors=errors,
+            description_placeholders={"name": device_name},
+        )
+
+
+class DummyOptionsFlowHandler(config_entries.OptionsFlow):
+    """Handle options for non-ReCamera devices."""
+
+    def __init__(self, config_entry: config_entries.ConfigEntry) -> None:
+        """Initialize options flow."""
+        self.config_entry = config_entry
+
+    async def async_step_init(
+        self, user_input: dict[str, Any] | None = None
+    ) -> FlowResult:
+        """Manage the options."""
+        # For non-ReCamera devices, show a message that no configuration is needed
+        if user_input is not None:
+            return self.async_create_entry(title="", data=self.config_entry.options)
+
+        # Get the device type
+        device_type = self.config_entry.data.get(DATA_SOURCE, "Unknown")
+
+        # Create a schema with a description
+        schema = vol.Schema({})
+
+        return self.async_show_form(
+            step_id="init",
+            data_schema=schema,
+            description_placeholders={
+                "device_name": self.config_entry.title,
+                "message": f"No configuration options are available for {device_type} devices."
+            }
+        )
+
+
+class OptionsFlowHandler(config_entries.OptionsFlow):
+    """Handle options."""
+
+    def __init__(self, config_entry: config_entries.ConfigEntry) -> None:
+        """Initialize options flow."""
+        self.config_entry = config_entry
+
+    async def async_step_init(
+        self, user_input: dict[str, Any] | None = None
+    ) -> FlowResult:
+        """Manage the options."""
+        # Only handle ReCamera devices
+        if self.config_entry.data.get(DATA_SOURCE) != RECAMERA:
+            return self.async_abort(reason="not_recamera")
+
+        if user_input is not None:
+            # Create a new config with updated values
+            new_config = dict(self.config_entry.data[CONFIG_DATA])
+            new_config[DEVICE_HOST] = user_input[DEVICE_HOST]
+
+            # Update the config entry with new values
+            return self.async_create_entry(
+                title="",
+                data={
+                    CONFIG_DATA: new_config,
+                    DATA_SOURCE: RECAMERA
+                }
+            )
+
+        # Get current values
+        current_config = self.config_entry.data.get(CONFIG_DATA, {})
+
+        # Create schema with current values, only IP is editable
+        schema = vol.Schema({
+            vol.Required(
+                DEVICE_HOST,
+                default=current_config.get(DEVICE_HOST, "")
+            ): str,
+        })
+
+        return self.async_show_form(
+            step_id="init",
+            data_schema=schema,
+            description_placeholders={
+                "device_name": self.config_entry.title,
+                "message": "You can update the IP address of your ReCamera device."
+            }
         )
 
 

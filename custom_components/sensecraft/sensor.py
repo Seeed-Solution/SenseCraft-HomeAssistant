@@ -1,13 +1,11 @@
 """sensor platform."""
 from __future__ import annotations
-import json
 import logging
 from homeassistant import config_entries
 from homeassistant.core import HomeAssistant
 
 from .core.cloud import Cloud
-from .core.jetson import Jetson
-from .core.grove_vision_ai_v2 import GroveVisionAiV2
+from .core.grove_vision_ai import GroveVisionAI
 from .core.watcher import Watcher
 from homeassistant.const import (
     PERCENTAGE,
@@ -24,9 +22,8 @@ from .const import (
     MEASUREMENT_DICT,
     DOMAIN,
     CLOUD,
-    JETSON,
     DATA_SOURCE,
-    GROVE_VISION_AI_V2,
+    GROVE_VISION_AI,
     WATCHER
 )
 
@@ -69,47 +66,11 @@ async def async_setup_entry(
         async_add_entities(entities, update_before_add=True)
         await cloud.mqttConnect()
 
-    elif data_source == JETSON:
-        jetson: Jetson = data[JETSON]
-        mac = jetson.deviceMac
-        deviceName = jetson.deviceName
-        models = await jetson.getModel()
-        entities = []
-        for key in models:
-            result = InferenceResult(mac, deviceName, models[key])
-            entities.append(result)
-
-        memoryUsed = JetsonDeviceInfo(mac, deviceName, 'memoryUsed')
-        memoryUsed._attr_unit_of_measurement = PERCENTAGE
-        memoryUsed._attr_icon = "mdi:memory"
-        entities.append(memoryUsed)
-
-        sdUsed = JetsonDeviceInfo(mac, deviceName, 'sdUsed')
-        sdUsed._attr_unit_of_measurement = PERCENTAGE
-        sdUsed._attr_icon = "mdi:sd"
-        entities.append(sdUsed)
-
-        flashUsed = JetsonDeviceInfo(mac, deviceName, 'flashUsed')
-        flashUsed._attr_unit_of_measurement = PERCENTAGE
-        flashUsed._attr_icon = "mdi:memory"
-        entities.append(flashUsed)
-
-        cpuUsed = JetsonDeviceInfo(mac, deviceName, 'cpuUsed')
-        cpuUsed._attr_unit_of_measurement = PERCENTAGE
-        cpuUsed._attr_icon = "mdi:percent"
-        entities.append(cpuUsed)
-
-        cpuTemperature = JetsonDeviceInfo(mac, deviceName, 'cpuTemperature')
-        cpuTemperature._attr_unit_of_measurement = UnitOfTemperature.CELSIUS
-        entities.append(cpuTemperature)
-
-        async_add_entities(entities, update_before_add=False)
-
-    elif data_source == GROVE_VISION_AI_V2:
-        groveVisionAiV2: GroveVisionAiV2 = data[GROVE_VISION_AI_V2]
-        deviceId = groveVisionAiV2.deviceId
-        deviceName = groveVisionAiV2.deviceName
-        classes = groveVisionAiV2.classes
+    elif data_source == GROVE_VISION_AI:
+        groveVisionAI: GroveVisionAI = data[GROVE_VISION_AI]
+        deviceId = groveVisionAI.deviceId
+        deviceName = groveVisionAI.deviceName
+        classes = groveVisionAI.classes
         entities = []
         for key in classes:
             result = InferenceResult(deviceId, deviceName, key)
@@ -122,7 +83,6 @@ async def async_setup_entry(
         entities = []
 
         temperature = WatcherSensor(eui, 'temperature')
-        temperature._attr_name = "Temperature"
         temperature._attr_unit_of_measurement = UnitOfTemperature.CELSIUS
         temperature._attr_icon = "mdi:temperature-celsius"
 
@@ -130,19 +90,16 @@ async def async_setup_entry(
 
         humidity = WatcherSensor(eui, 'humidity')
 
-        humidity._attr_name = "Air Humidity"
         humidity._attr_unit_of_measurement = "% RH",
         humidity._attr_icon = "mdi:water-percent"
         entities.append(humidity)
 
         co2 = WatcherSensor(eui, 'co2')
-        co2._attr_name = "CO2"
         co2._attr_unit_of_measurement = "ppm",
         co2._attr_icon = "mdi:molecule-co2"
         entities.append(co2)
 
-        alarm = AlarmSensor(eui)
-        alarm._attr_name = "Alarm"
+        alarm = WatcherSensor(eui, 'alarm')
         alarm._attr_icon = "mdi:alarm-light"
         entities.append(alarm)
 
@@ -189,8 +146,7 @@ class CloudSensor(Entity):
 
     def handle_event(self, event):
         self._state = event.data.get('value')
-        if self.hass:
-            self.hass.loop.call_soon_threadsafe(self.async_schedule_update_ha_state)
+        self.hass.loop.call_soon_threadsafe(self.async_schedule_update_ha_state)
 
     @property
     def device_info(self) -> DeviceInfo:
@@ -216,56 +172,7 @@ class CloudSensor(Entity):
         return self._state
 
     def should_poll():
-        return True
-
-
-class JetsonDeviceInfo(Entity):
-    def __init__(self, deviceId: str, name: str, type: str):
-        """Initialize the sensor."""
-        self._attr_unique_id = f"{deviceId}_{type}"
-        self._deviceId = deviceId
-        self._event_type = f"{DOMAIN}_info_{self._attr_unique_id}"
-        self._device_name = name
-        self._attr_name = type
-        self._state = 'unavailable'
-        self._event = None
-
-    async def async_added_to_hass(self) -> None:
-        """Run when this Entity has been added to HA."""
-        self._event = self.hass.bus.async_listen(
-            self._event_type, self.handle_event)
-
-    async def async_will_remove_from_hass(self) -> None:
-        """Entity being removed from hass."""
-        if self._event:
-            self._event()
-            self._event = None
-
-    def handle_event(self, event):
-        self._state = event.data.get('value')
-        if self.hass:
-            self.hass.loop.call_soon_threadsafe(self.async_schedule_update_ha_state)
-
-    @property
-    def device_info(self) -> DeviceInfo:
-        """Return the device info."""
-        return DeviceInfo(
-            identifiers={
-                # Serial numbers are unique identifiers within a specific domain
-                (DOMAIN, self._deviceId)
-            },
-            name=self._device_name,
-            manufacturer="Seeed Studio",
-            model="Jetson",
-            sw_version="1.0",
-        )
-
-    @property
-    def state(self):
-        return self._state
-
-    def should_poll():
-        return True
+        return True 
 
 
 class InferenceResult(Entity):
@@ -292,8 +199,7 @@ class InferenceResult(Entity):
 
     def handle_event(self, event):
         self._state = event.data.get('value')
-        if self.hass:
-            self.hass.loop.call_soon_threadsafe(self.async_schedule_update_ha_state)
+        self.hass.loop.call_soon_threadsafe(self.async_schedule_update_ha_state)
 
     @property
     def device_info(self) -> DeviceInfo:
@@ -317,11 +223,18 @@ class InferenceResult(Entity):
 
 class WatcherSensor(Entity):
     def __init__(self, eui: str, type: str):
-        """Initialize the sensor."""
+        """Initialize the sensor.
+        
+        Args:
+            eui: The device EUI
+            type: The sensor type ('temperature', 'humidity', 'CO2', 'alarm')
+        """
         self._eui = eui
-        self._attr_unique_id = f"watcher_{type}_{eui}"
+        self._type = type
+        self._deviceName = f"watcher_{eui}"
+        self._attr_unique_id = f"{self._deviceName}_{type}"
+        self._attr_name = self._attr_unique_id
         self._event_type = f"{DOMAIN}_{self._attr_unique_id}"
-        self._attr_name = type
         self._state = 'unavailable'
         self._event = None
 
@@ -337,9 +250,10 @@ class WatcherSensor(Entity):
             self._event = None
 
     def handle_event(self, event):
-        self._state = event.data.get('value')
-        if self.hass:
-            self.hass.loop.call_soon_threadsafe(self.async_schedule_update_ha_state)
+        """Handle the event data based on sensor type."""
+        # 报警传感器使用 'text' 字段，其他传感器使用 'value' 字段
+        self._state = event.data.get('text' if self._type == 'alarm' else 'value')
+        self.hass.loop.call_soon_threadsafe(self.async_schedule_update_ha_state)
 
     @property
     def device_info(self) -> DeviceInfo:
@@ -349,7 +263,7 @@ class WatcherSensor(Entity):
                 # Serial numbers are unique identifiers within a specific domain
                 (DOMAIN, self._eui)
             },
-            name=self._eui,
+            name=self._deviceName,
             manufacturer="Seeed Studio",
             model="Watcher",
             sw_version="1.0",
@@ -357,49 +271,5 @@ class WatcherSensor(Entity):
 
     @property
     def state(self):
-        return self._state
-
-
-class AlarmSensor(Entity):
-    def __init__(self, eui: str):
-        """Initialize the sensor."""
-        self._eui = eui
-        self._attr_unique_id = f"watcher_alarm_{eui}"
-        self._event_type = f"{DOMAIN}_{self._attr_unique_id}"
-        self._attr_name = type
-        self._state = 'unavailable'
-        self._event = None
-
-    async def async_added_to_hass(self) -> None:
-        """Run when this Entity has been added to HA."""
-        self._event = self.hass.bus.async_listen(
-            self._event_type, self.handle_event)
-
-    async def async_will_remove_from_hass(self) -> None:
-        """Entity being removed from hass."""
-        if self._event:
-            self._event()
-            self._event = None
-
-    def handle_event(self, event):
-        self._state = event.data.get('text')
-        if self.hass:
-            self.hass.loop.call_soon_threadsafe(self.async_schedule_update_ha_state)
-
-    @property
-    def device_info(self) -> DeviceInfo:
-        """Return the device info."""
-        return DeviceInfo(
-            identifiers={
-                # Serial numbers are unique identifiers within a specific domain
-                (DOMAIN, self._eui)
-            },
-            name="Alarm Sensor",
-            manufacturer="Seeed Studio",
-            model="Watcher",
-            sw_version="1.0",
-        )
-
-    @property
-    def state(self):
+        """Return the state of the sensor."""
         return self._state

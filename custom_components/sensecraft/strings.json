@@ -11,14 +11,16 @@
     "error": {
       "invalid_auth": "Login failed",
       "no_apikey": "NO API key",
-      "setup_error": "Setup failed"
+      "setup_error": "Setup failed",
+      "cannot_connect": "Failed to connect to the device.",
+      "unknown": "Unexpected error occurred."
     },
     "step": {
       "user": {
         "title": "SenseCraft",
-        "description": "Select Action",
+        "description": "Please select the type of device you want to add.",
         "data": {
-          "action": "Action"
+          "data_source": "Device Type"
         }
       },
       "cloud": {
@@ -44,38 +46,12 @@
           "device": "Device"
         }
       },
-      "local_jetson": {
-        "title": "Jetson",
-        "description": "Config Jetson",
-        "data": {
-          "host": "Host",
-          "name": "Name"
-        }
-      },
       "local_grove_vision_ai": {
-        "title": "grove_vision_ai_v2",
-        "description": "Config grove_vision_ai_v2",
+        "title": "Configure Grove Vision AI",
+        "description": "Please enter the IP address of your Grove Vision AI.",
         "data": {
           "id": "Id"
         }
-      },
-      "local_recamera_gimbal": {
-        "title": "recamera_gimbal",
-        "description": "Config recamera_gimbal",
-        "data": {
-          "sn": "SN"
-        }
-      },
-      "local_watcher": {
-        "title": "Watcher",
-        "description": "The Server Host is the same as Home Assistant's IP, and the Port is 8887.",
-        "data": {
-          "eui": "EUI"
-        }
-      },
-      "watcher_confirm": {
-        "title": "Watcher",
-        "description": "Do you want to add `{name}` to Home Assistant?"
       },
       "mqtt": {
         "title": "Setup MQTT Server",
@@ -88,15 +64,30 @@
           "password": "Password"
         }
       },
-      "recamera_gimbal_mqtt": {
-        "title": "Setup MQTT Server",
-        "description": "Do you want to add `{name}` to Home Assistant?",
+      "local_recamera": {
+        "title": "Configure ReCamera Gimbal",
+        "description": "Please enter the SN of your ReCamera Gimbal.",
         "data": {
-          "broker": "Broker",
-          "port": "Port",
-          "username": "Username",
-          "password": "Password"
+          "device_id": "SN"
         }
+      },
+      "recamera_confirm": {
+        "title": "ReCamera Gimbal",
+        "description": "Please enter the IP address of your ReCamera Gimbal.",
+        "data": {
+          "device_host": "IP"
+        }
+      },
+      "local_watcher": {
+        "title": "Watcher",
+        "description": "The Server Host is the same as Home Assistant's IP",
+        "data": {
+          "device_id": "EUI"
+        }
+      },
+      "watcher_confirm": {
+        "title": "Watcher",
+        "description": "Do you want to add `{name}` to Home Assistant?"
       },
       "zeroconf_confirm": {
         "title": "Discovered SenseCraft Device",
@@ -107,10 +98,10 @@
   "options": {
     "step": {
       "init": {
-        "title": "Device",
-        "description": "Select the device to set up.",
+        "title": "Configure {device_name}",
+        "description": "{message}",
         "data": {
-          "selected_device": "Select device"
+          "device_host": "IP"
         }
       }
     }

@@ -9,7 +9,8 @@ from ..const import (
 )
 _LOGGER = logging.getLogger(__name__)
 
-class GroveVisionAiV2():
+
+class GroveVisionAI():
 
     def __init__(self, hass: HomeAssistant, config: dict):
         self.hass = hass
@@ -31,7 +32,7 @@ class GroveVisionAiV2():
 
         self.mqttClient = None
         self.sscmaClient = None
-        self.stream_callback = None
+        self._camera_callback = None
         self.device = None
         self.connected = False
         self.connectEvent = threading.Event()
@@ -52,7 +53,7 @@ class GroveVisionAiV2():
     @staticmethod
     def from_config(hass: HomeAssistant, config: dict):
         # 从字典创建对象
-        local = GroveVisionAiV2(hass, config)
+        local = GroveVisionAI(hass, config)
         return local
 
     def setMqtt(self):
@@ -71,6 +72,7 @@ class GroveVisionAiV2():
                 self.sscmaClient
             )
             if mqtt.connect():
+                self.device.on_monitor = self.on_monitor
                 self.device.on_connect = self.on_device_connect
                 self.device.loop_start()
                 self.mqttClient = mqtt
@@ -78,24 +80,22 @@ class GroveVisionAiV2():
                 self.mqttClient.message_received = self.on_message
                 # 等待连接结果
                 if self.connectEvent.wait(timeout=30):
-                    self.device.on_monitor = self.on_monitor
                     self.connected = True
                     return True
                 else:
                     self.connected = False
                     return False
         except Exception as e:
-            print('setMqtt failed', e)
             self.connected = False
             return False
 
     def on_device_connect(self, device):
         _LOGGER.info("Device connected".center(100, "-"))
+        self.connectEvent.set()
         self.device.invoke(-1, False, True)
         self.device.tscore = 70
         self.device.tiou = 45
         self.classes = self.device.model.classes
-        self.connectEvent.set()
 
     def stop(self):
         if self.mqttClient:
@@ -140,18 +140,17 @@ class GroveVisionAiV2():
                         counts[classId] += 1
 
         for index in counts:
-            if(len(self.classes) > index):
+            if (len(self.classes) > index):
                 name = self.classes[index]
                 _event_type = f"{DOMAIN}_inference_{self.deviceId}_{name.lower()}"
                 self.hass.bus.fire(_event_type, {"value": counts[index]})
-        
-        if image is not None:
-             if self.stream_callback is not None:
-                self.stream_callback(image)
 
-        
-    def on_monitor_stream(self, callback):
+        if image is not None:
+            if self._camera_callback is not None:
+                self._camera_callback(image)
+
+    def on_received_camera_image(self, callback):
         if not self.connected:
             self.setMqtt()
 
-        self.stream_callback = callback
+        self._camera_callback = callback

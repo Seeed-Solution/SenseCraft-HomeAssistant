@@ -2,7 +2,7 @@ import logging
 import os
 from homeassistant import config_entries
 from homeassistant.util import dt as dt_util
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, callback
 from homeassistant.components.image import ImageEntity
 from homeassistant.helpers.device_registry import (
     DeviceInfo,
@@ -11,7 +11,7 @@ from .core.watcher import Watcher
 from .const import (
     DOMAIN,
     WATCHER,
-    DATA_SOURCE
+    DATA_SOURCE,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -42,10 +42,12 @@ class WatcherImage(ImageEntity):
         self.hass = hass
         
         ImageEntity.__init__(self, hass)
-        self._attr_unique_id = f"watcher_image_{eui}"
+        
         self._eui = eui
+        self._deviceName = f"watcher_{eui}"
+        self._attr_unique_id = f"{self._deviceName}_image"
         self._event_type = f"{DOMAIN}_{self._attr_unique_id}"
-        self._attr_name = "Alarm Triggered"
+        self._attr_name = f"{self._deviceName}_alarm_triggered"
         self._attr_image_last_updated = None
         self._event = None
         self._image_path = None
@@ -61,7 +63,9 @@ class WatcherImage(ImageEntity):
             self._event()
             self._event = None
 
+    @callback
     def handle_event(self, event):
+        """Handle the event in a callback to ensure thread safety."""
         image_path = event.data.get('image_path')
         alarm_text = event.data.get('alarm_text')
         if image_path and os.path.exists(image_path):
@@ -75,9 +79,8 @@ class WatcherImage(ImageEntity):
         else:
             self._image_path = None
 
-        self._attr_image_last_updated = dt_util.utcnow() 
-        if self.hass:
-            self.hass.loop.call_soon_threadsafe(self.async_schedule_update_ha_state)
+        self._attr_image_last_updated = dt_util.utcnow()
+        self.hass.loop.call_soon_threadsafe(self.async_schedule_update_ha_state)
 
     @property
     def device_info(self) -> DeviceInfo:
@@ -86,7 +89,7 @@ class WatcherImage(ImageEntity):
             identifiers={
                 (DOMAIN, self._eui)
             },
-            name=self._eui,
+            name=self._deviceName,
             manufacturer="Seeed Studio",
             model="Watcher",
             sw_version="1.0",

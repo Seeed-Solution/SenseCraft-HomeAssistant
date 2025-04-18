@@ -8,18 +8,16 @@ from homeassistant.helpers.typing import ConfigType
 from .const import (
     DOMAIN,
     CLOUD,
-    JETSON,
     CONFIG_DATA,
     DATA_SOURCE,
-    GROVE_VISION_AI_V2,
+    GROVE_VISION_AI,
     WATCHER,
-    RECAMERA_GIMBAL,
+    RECAMERA,
 )
 
 # from .mqtt_assistant import MQTTAssistant
 from .core.cloud import Cloud
-from .core.jetson import Jetson
-from .core.grove_vision_ai_v2 import GroveVisionAiV2
+from .core.grove_vision_ai import GroveVisionAI
 from .core.watcher import Watcher
 from .core.recamera import ReCamera
 
@@ -49,25 +47,19 @@ async def async_setup_entry(
         cloud = Cloud.from_config(hass, data.get(CONFIG_DATA))
         data[CLOUD] = cloud
 
-    elif data_source == JETSON:
-        jetson = Jetson.from_config(
-            hass, data.get(CONFIG_DATA))
-        jetson.setMqtt()
-        data[JETSON] = jetson
-
-    elif data_source == GROVE_VISION_AI_V2:
-        groveVisionAiV2 = GroveVisionAiV2.from_config(hass, data.get(CONFIG_DATA))
-        groveVisionAiV2.setMqtt()
-        data[GROVE_VISION_AI_V2] = groveVisionAiV2
+    elif data_source == GROVE_VISION_AI:
+        groveVisionAI = GroveVisionAI.from_config(hass, data.get(CONFIG_DATA))
+        groveVisionAI.setMqtt()
+        data[GROVE_VISION_AI] = groveVisionAI
 
     elif data_source == WATCHER:
         watcher = Watcher.from_config(hass, data.get(CONFIG_DATA))
         data[WATCHER] = watcher
 
-    elif data_source == RECAMERA_GIMBAL:
+    elif data_source == RECAMERA:
         recameraLocal = ReCamera.from_config(hass, data.get(CONFIG_DATA))
-        recameraLocal.setMqtt()
-        data[RECAMERA_GIMBAL] = recameraLocal
+        await recameraLocal.async_setup()
+        data[RECAMERA] = recameraLocal
 
     hass.data[DOMAIN][entry.entry_id] = data
 
@@ -84,15 +76,15 @@ async def async_unload_entry(
     if data_source == CLOUD:
         cloud: Cloud = data[CLOUD]
         cloud.stop()
-    elif data_source == JETSON:
-        jetson: Jetson = data[JETSON]
-        jetson.stop()
-    elif data_source == GROVE_VISION_AI_V2:
-        groveVisionAiV2: GroveVisionAiV2 = data[GROVE_VISION_AI_V2]
-        groveVisionAiV2.stop()
-    elif data_source == RECAMERA_GIMBAL:
-        recameraLocal: ReCamera = data[RECAMERA_GIMBAL]
-        recameraLocal.stop()
+    elif data_source == GROVE_VISION_AI:
+        groveVisionAI: GroveVisionAI = data[GROVE_VISION_AI]
+        groveVisionAI.stop()
+    elif data_source == WATCHER:
+        watcher: Watcher = data[WATCHER]
+        watcher.cleanup()
+    elif data_source == RECAMERA:
+        recameraLocal: ReCamera = data[RECAMERA]
+        recameraLocal.cleanup()
 
     unload_ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
     if unload_ok:
@@ -100,6 +92,14 @@ async def async_unload_entry(
     return unload_ok
 
 
-async def update_listener(hass: HomeAssistant, entry: config_entries.ConfigEntry) -> None:
+async def update_listener(hass: HomeAssistant, entry: ConfigEntry) -> None:
     """Handle options update."""
+    data_source = entry.data.get(DATA_SOURCE)
+    
+    if data_source == RECAMERA:
+        device: ReCamera = hass.data[DOMAIN][entry.entry_id][RECAMERA]
+        if device:
+            # Update device configuration
+            device.update_config(entry.data[CONFIG_DATA])
+            
     await hass.config_entries.async_reload(entry.entry_id)
