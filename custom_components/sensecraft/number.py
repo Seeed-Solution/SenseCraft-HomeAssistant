@@ -1,7 +1,5 @@
 """Demo platform that offers a fake Number entity."""
 from __future__ import annotations
-import json  # 添加 json 导入
-
 from homeassistant.components.number import NumberEntity, NumberMode
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
@@ -104,10 +102,12 @@ class Confidence(ConfigNumber):
         id: str,
         name: str,
         entry_id: str,
-        state: float,
+        state: float | None,
     ) -> None:
         """Initialize the Confidence entity."""
-        super().__init__(id, name, entry_id, state)
+        # 如果 state 为 None，使用默认值 70
+        default_value = 70.0
+        super().__init__(id, name, entry_id, state if state is not None else default_value)
         self._attr_unique_id = id + "_" + "confidence"
         self._attr_icon = "mdi:filter-outline"
         self._attr_name = "Confidence"
@@ -130,10 +130,12 @@ class IOU(ConfigNumber):
         id: str,
         name: str,
         entry_id: str,
-        state: float,
+        state: float | None,
     ) -> None:
         """Initialize the IOU entity."""
-        super().__init__(id, name, entry_id, state)
+        # 如果 state 为 None，使用默认值 70
+        default_value = 70.0
+        super().__init__(id, name, entry_id, state if state is not None else default_value)
         self._attr_unique_id = id + "_" + "iou"
         self._attr_icon = "mdi:vector-intersection"
         self._attr_name = "IOU"

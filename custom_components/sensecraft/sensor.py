@@ -73,7 +73,7 @@ async def async_setup_entry(
         classes = groveVisionAI.classes
         entities = []
         for key in classes:
-            result = InferenceResult(deviceId, deviceName, key)
+            result = GroveVisionAIResult(deviceId, deviceName, key)
             entities.append(result)
         async_add_entities(entities, update_before_add=False)
 
@@ -175,7 +175,7 @@ class CloudSensor(Entity):
         return True 
 
 
-class InferenceResult(Entity):
+class GroveVisionAIResult(Entity):
     def __init__(self, deviceId: str, deviceName: str, object: str):
         """Initialize the sensor."""
         self._attr_unique_id = f"{deviceId}_{object.lower()}"

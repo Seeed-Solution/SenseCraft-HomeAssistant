@@ -91,11 +91,11 @@ class GroveVisionAI():
 
     def on_device_connect(self, device):
         _LOGGER.info("Device connected".center(100, "-"))
-        self.connectEvent.set()
-        self.device.invoke(-1, False, True)
+        self.device.Invoke(-1, False, True)
         self.device.tscore = 70
-        self.device.tiou = 45
+        self.device.tiou = 70
         self.classes = self.device.model.classes
+        self.connectEvent.set()
 
     def stop(self):
         if self.mqttClient:
@@ -106,7 +106,7 @@ class GroveVisionAI():
     def on_message(self, msg):
         self.sscmaClient.on_recieve(msg.payload)
 
-    def on_monitor(self, message):
+    def on_monitor(self, device, message):
         image = message.get('image')
         # [[137, 95, 180, 165, 83, 0]]
         boxes = message.get('boxes')
@@ -114,7 +114,6 @@ class GroveVisionAI():
         points = message.get('points')
         # [[83, 0]]
         classes = message.get('classes')
-
         counts = {}
         length = len(self.classes)
         for index in range(length):

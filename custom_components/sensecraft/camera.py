@@ -34,7 +34,7 @@ async def async_setup_entry(
         async_add_entities([camera], False)
     elif data_source == RECAMERA:
         recamera: ReCamera = data[RECAMERA]
-        camera = ReCameraEntity(recamera.deviceId, recamera.deviceName)
+        camera = ReCameraCamera(recamera.deviceId, recamera.deviceName)
         recamera.on_received_camera_image(camera.received_image)
         async_add_entities([camera], False)
 
@@ -100,7 +100,7 @@ class GroveVisionAICamera(CameraBase):
         )
 
 
-class ReCameraEntity(CameraBase):
+class ReCameraCamera(CameraBase):
     """Representation of a ReCamera entity."""
 
     def __init__(
