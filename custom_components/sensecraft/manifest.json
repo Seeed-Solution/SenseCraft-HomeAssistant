@@ -12,7 +12,7 @@
   "iot_class": "cloud_push",
   "requirements": [
     "paho-mqtt==2.1.0",
-    "python-sscma@git+https://github.com/Seeed-Studio/python-sscma@Remove-the-OpenCV-dependency"
+    "python-sscma==0.5.6.1"
   ],
   "version": "1.1.8",
   "zeroconf": [
