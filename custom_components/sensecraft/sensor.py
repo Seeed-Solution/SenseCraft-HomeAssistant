@@ -4,7 +4,7 @@ import logging
 from homeassistant import config_entries
 from homeassistant.core import HomeAssistant
 
-from .core.cloud import Cloud
+from .core.cloud import Cloud, CloudSensorInfo
 from .core.grove_vision_ai import GroveVisionAI
 from .core.watcher import Watcher
 from homeassistant.const import (
@@ -41,7 +41,7 @@ async def async_setup_entry(
 
     if data_source == CLOUD:
         cloud: Cloud = data[CLOUD]
-        deviceInfoList = await cloud.getSelectedDeviceInfo()
+        deviceInfoList = await cloud.getSelectedCloudSensorInfo()
 
         selectedDeviceEuis = cloud.selectedDeviceEuis
         device_registry = async_get(hass)
@@ -107,14 +107,13 @@ async def async_setup_entry(
 
 
 class CloudSensor(Entity):
-    def __init__(self, deviceInfo: dict):
+    def __init__(self, deviceInfo: CloudSensorInfo):
         """Initialize the sensor."""
-        self._eui = deviceInfo['eui']
-        self._attr_unique_id = f"{self._eui}_{deviceInfo['channelIndex']}_{deviceInfo['measurementID']}"
+        self._eui = deviceInfo.eui
+        self._attr_unique_id = f"{self._eui}_{deviceInfo.channelIndex}_{deviceInfo.measurementID}"
         self._event_type = f"{DOMAIN}_cloud_{self._attr_unique_id}"
-        self._uniform_type = deviceInfo['uniform_type']
         
-        deviceName = deviceInfo['name']
+        deviceName = deviceInfo.name
         if deviceName is None or len(deviceName) == 0:
             self._device_name = self._eui
         else:
@@ -122,7 +121,7 @@ class CloudSensor(Entity):
 
         self._state = 'unavailable'
         self._event = None
-        self._measurementID = deviceInfo['measurementID']
+        self._measurementID = deviceInfo.measurementID
         measurementInfo = MEASUREMENT_DICT.get(self._measurementID)
         if measurementInfo is None:
             default_name = "Unknown Measurement"
@@ -164,8 +163,8 @@ class CloudSensor(Entity):
 
     @property
     def available(self) -> bool:
-        """Return True if roller and hub is available."""
-        return self._state
+        """Return True if sensor is available."""
+        return self._state != 'unavailable'
 
     @property
     def state(self):

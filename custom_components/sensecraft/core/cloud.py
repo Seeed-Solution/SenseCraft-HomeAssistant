@@ -32,6 +32,14 @@ ENV_URL = {
 _LOGGER = logging.getLogger(__name__)
 
 
+class CloudSensorInfo:
+    def __init__(self, eui, name, channel_index, measurement_id):
+        self.eui = eui
+        self.name = name
+        self.channelIndex = channel_index
+        self.measurementID = measurement_id
+
+
 class Cloud():
 
     def __init__(self, hass: HomeAssistant):
@@ -168,41 +176,36 @@ class Cloud():
         except:
             raise ValueError
 
-    async def getSelectedDeviceInfo(self):
+    async def getSelectedCloudSensorInfo(self):
         try:
             allDeviceList = await self.getDeviceList()
             allDevice_euis = [device.get('device_eui')
                               for device in allDeviceList]
             newSelectedDeviceEuis = [
                 eui for eui in self.selectedDeviceEuis if eui in allDevice_euis]
-
             if len(newSelectedDeviceEuis) > 0:
                 selectedDeviceChannels = await self.getDeviceDetail(list(newSelectedDeviceEuis))
             else:
                 selectedDeviceChannels = []
             self.selectedDeviceEuis = newSelectedDeviceEuis
 
-            deviceInfoList = []
+            cloudSensorInfoList = []
             for device in selectedDeviceChannels:
-                deviceInfo = dict()
                 eui = device.get('device_eui')
                 device_name = device.get('device_name')
-                uniform_type = device.get('uniform_type')
-                deviceInfo['eui'] = eui
-                deviceInfo['name'] = device_name
-                deviceInfo['uniform_type'] = uniform_type
-
+                
                 channels = device.get('channels')
                 for channel in channels:
                     channelIndex = int(channel.get('channel_index'))
-                    deviceInfo['channelIndex'] = channelIndex
                     measurement_ids = channel.get('measurement_ids')
+                    
                     for measurementID in measurement_ids:
-                        deviceInfo['measurementID'] = measurementID
-                        deviceInfoList.append(deviceInfo)
-            return deviceInfoList
-        except:
-            raise []
+                        cloudSensorInfo = CloudSensorInfo(eui, device_name, channelIndex, measurementID)
+                        cloudSensorInfoList.append(cloudSensorInfo)
+            return cloudSensorInfoList
+        except Exception as e:
+            _LOGGER.error("Error in getSelectedDeviceInfo: %s", e)
+            return []
 
     def received_message(self, msg):
         data = msg.payload.decode()
@@ -220,8 +223,7 @@ class Cloud():
         if eui not in self.selectedDeviceEuis:
             return
 
-        entity_id = f"{eui}_{channelIndex}_{measurementID}"
-        event_type = f"{DOMAIN}_cloud_{entity_id}"
+        event_type = f"{DOMAIN}_cloud_{eui}_{channelIndex}_{measurementID}"
         self.hass.bus.fire(event_type, {"value": value})
 
     async def mqttConnect(self):

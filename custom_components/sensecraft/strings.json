@@ -48,9 +48,9 @@
       },
       "local_grove_vision_ai": {
         "title": "Configure Grove Vision AI",
-        "description": "Please enter the IP address of your Grove Vision AI.",
+        "description": "Please enter the ID of your Grove Vision AI.",
         "data": {
-          "id": "Id"
+          "id": "ID"
         }
       },
       "mqtt": {
